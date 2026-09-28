@@ -18,15 +18,11 @@ Read `AGENTS.md`, `brief.md`, and this file. Ask one focused question at a time.
 
 ## Context of use
 
-As the User, describe when and where you would use the app and what you need from it. Record important circumstances, assumptions, and limitations.
+I'd use this app frequently and casually throughout the day: sometimes spontaneously (right before heading out) and sometimes looking ahead to plan for later or tomorrow. I'm primarily on my phone, so quick, one-handed checks matter most, though I'd also expect it to work fine on a laptop. I move between multiple locations (e.g., home and campus) regularly, so switching location easily is important — even though the app only needs to remember the most recent one.
 
 ## User story
 
-Write at least one user story grounded in your context of use:
-
-> As a [type of user], I want to [need or goal], so that [reason or outcome].
-
-Focus on the need rather than prescribing an interface or feature.
+> As a college student who moves between locations, I want to quickly check current or upcoming weather and get a clear outfit/reminder recommendation for wherever I am, so that I can decide what to wear and prepare (umbrella, sunscreen, etc.) without digging through a full weather app.
 
 ## References
 
