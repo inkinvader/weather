@@ -85,6 +85,29 @@ Reminder triggers, drawn from official sources rather than generic guides:
 - **Data minimization**: per the brief, only the most recent location is stored, and only on-device (e.g., `localStorage`) — not sent to or retained by any server, since weather/geocoding calls go directly from the browser to Open-Meteo.
 - **Info screen disclosure**: state that location (device GPS or manually typed city) is used only to fetch weather for that spot, stored locally on the user's device, never transmitted to a third party beyond the Open-Meteo API call itself, and never used for tracking.
 
+### Artwork approach
+
+Compared three production approaches given the modular (base body + swappable layers) character design and the art volume required:
+
+- **Original hand-drawn**: full creative control, no licensing to track, but highest time cost — estimated 40+ individual pieces (see estimate below) is a lot alongside building and testing the app solo in two weeks.
+- **Licensed asset pack**: e.g., Cozy People Asset Pack (itch.io) offers 5 skin tones, 10 hairstyles × 14 colors, and modular 32×32 clothing layers built for exactly this kind of mix-and-match character. Fast and consistent, but wouldn't match a Mii-inspired style without re-skinning, and the specific outfit variations per temperature category would still need separate sourcing.
+- **AI-generated**: tools with character-consistency features (e.g., Midjourney's Omni Reference, Ideogram) can hold a character's identity across generations from one reference image, but produce whole finished images rather than separable transparent layers.
+
+**Decision:** AI-generated. Body type (fat/skinny/average) and gender presentation (feminine/masculine qualities) are combined with each weather-driven outfit variation into one fully flattened character render per combination, rather than built from swappable transparent layers — simpler for the AI tool to produce reliably, generated one image at a time, incrementally during the build rather than in one upfront batch. Personality (energetic, anxious, grumpy, chill, neutral) is the one piece that stays a separate lightweight overlay — a swapped face/expression crop applied over whichever flattened render is showing — since personality, along with location/date, is the main input the user directly controls; body type, gender presentation, and the specific outfit variation drawn for a given weather condition are left to the app's randomization, not chosen by the user.
+
+Visual style: heavily inspired by Nintendo Mii / Wii-era avatars (simplified, rounded features, minimal facial detail, stylized proportions) — described to the AI tool by these traits rather than by naming the trademarked "Mii" product, and credited on the info screen as stylistic inspiration (not an official license), with explicit context that this project is a non-commercial class assignment not distributed beyond it.
+
+**Art estimate**, based on the categories and features decided so far:
+
+| Asset | Count |
+|---|---|
+| Flattened body+outfit renders (3 body types × 2 gender presentations × 21 outfit variations) | 126 |
+| Personality face/expression overlay crops (energetic, anxious, grumpy, chill, neutral) | 5 |
+| Weather condition icons (clear, partly cloudy, cloudy, rain, thunderstorm, snow, windy/fog) | ~7 |
+| Reminder icons (umbrella, sunscreen, hydration, cold caution) | 4 |
+
+Total: roughly 142 individual art pieces, generated incrementally over the build rather than all at once.
+
 ## Decisions
 
 Record the selected weather provider, forecast range, recommendation categories and rules, screen structure, visual direction, artwork approach (original, AI-generated, or appropriately licensed), deployment method, and one additional feature justified by the research. Briefly explain important trade-offs.
