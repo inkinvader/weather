@@ -84,6 +84,20 @@ During implementation, follow the approved plan in working checkpoints and keep 
 
 Before testing, record the purpose, a few realistic tasks, non-leading prompts, and a consistent note format. For each session, use a non-identifying label and record the task, what the tester did or said, successes, barriers or questions, and possible changes. Keep observations separate from interpretations. After all three sessions, summarize the strongest findings and the improvement they support.
 
+**Purpose:** Confirm that a new user can check today's and an upcoming day's weather, understand the character's outfit recommendation and any reminders, and build/customize a character — without guidance — on their own phone.
+
+**Tasks** (given to each tester, phone first, then laptop if time allows):
+1. "Open the app and find out what the weather is like right now, wherever you are."
+2. "Check what it'll be like this weekend." (tests date picker + Forecast badge)
+3. "Build a character that looks and acts like you." (tests character builder, personality)
+4. "Find out where the weather data comes from and how your location is handled." (tests About/privacy)
+
+**Prompts:** Keep non-leading — e.g., "What do you expect to happen if you tap that?" rather than "Tap the date button." Let the tester narrate out loud; only intervene if fully stuck for 30+ seconds.
+
+**Note format** (one row per tester per task): Tester label (e.g., P1/P2/P3) · Task · What they did/said · Succeeded? · Barrier or question raised · Possible change (kept separate from the raw observation).
+
+After all three sessions: summarize the strongest recurring finding and the one improvement it justifies, then add it to the Build checklist above and implement/verify/redeploy it.
+
 ## Revisions
 
 Record material plan changes and why they were made.
