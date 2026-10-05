@@ -123,6 +123,12 @@ Each character on screen has its own recommendation state (steps 3–8 run once 
 
 Define at least three outfit variations for each recommendation category and at least three wording variations for each reminder type. Define how outfit and reminder variations are chosen independently at random, and how a previously selected date keeps the same variations, including whether they persist after the page reloads.
 
+- **Outfit variations:** 3+ per temperature category (7 categories), per `research.md`'s art estimate. Selection is independent per category — the variation chosen for "Cool" has no bearing on what would be chosen for "Mild."
+- **Reminder wording variations:** 3+ per reminder type (sunscreen, umbrella, hydration, cold caution). Selection is independent per reminder type and independent of the outfit variation.
+- **Independence:** outfit and each active reminder are drawn as separate random picks — not as a fixed bundle — so, e.g., two characters with the same outfit style can still show different reminder wording.
+- **Randomness source:** a seed derived from `(location, date, characterId)` (see data flow) feeds a deterministic pseudo-random function, so the same inputs always reproduce the same picks instead of true fresh randomness on every render.
+- **Persistence:** the recommendation state (including the specific outfit/reminder variations chosen) is cached in `localStorage`, keyed by `(location, date, characterId)`. On revisiting that exact combination — including after a full page reload — the cached state is reused rather than re-rolled, as long as the underlying weather data for that date hasn't changed (e.g., a forecast updating closer to the date invalidates the cache for that entry).
+
 ## Assets
 
 List every art and graphical asset: the character, each outfit variation, icons, and any other visuals. For each, note where it appears, its format, and whether it will be created, generated, or licensed, with its credit or license.
