@@ -44,13 +44,23 @@ During implementation, follow the approved plan in working checkpoints and keep 
 
 ### Build
 
-- [ ] Create or source the assets listed in `spec.md`, starting early
-- [ ] Replace this line with ordered tasks that name the result of each step
-- [ ] Use the approved screen drawings to guide layout and interaction work
-- [ ] Keep one recommendation state driving every visual and written output
-- [ ] Test and fix each checkpoint against the specification before starting the next
-- [ ] Commit meaningful working checkpoints
-- [ ] Deploy to a public HTTPS URL
+- [ ] Scaffold the project (HTML/CSS/JS, no build step) and confirm GitHub Pages serves a blank page at the public URL
+- [ ] Integrate Open-Meteo geocoding + forecast fetch (manual city entry and device geolocation); confirm real current + forecast data logs correctly for a test location
+- [ ] Implement temperature-band mapping and reminder-threshold evaluation (`research.md` rules); confirm correct category and active reminders for known test values
+- [ ] Implement the seeded random variation picker (keyed by location + date + character); confirm identical inputs always reproduce identical picks, and different inputs vary
+- [ ] Implement `localStorage` persistence (most-recent location, saved characters, cached recommendation state per location+date+character); confirm state survives a page reload
+- [ ] Build the main screen with placeholder art, wired to the recommendation state — one recommendation state must drive every visual and written output (character, icon, text, reminders) with nothing contradicting anything else
+- [ ] Build the date picker (14-day range calendar) and location picker (manual entry + device location) controls; confirm selecting a date/location updates the main screen and the Forecast badge correctly
+- [ ] Build the character builder (scrollable trait tabs, gallery of up to 5 characters) with placeholder thumbnails, using the approved screen drawings for layout
+- [ ] Build the Settings screen, including the About section with all five required info topics
+- [ ] Build the four Error/Loading states, using the approved screen drawings
+- [ ] Lock an AI art style/reference prompt and validate one sample render before bulk generation
+- [ ] Generate and integrate art assets incrementally, replacing placeholders — prioritize weather icons, reminder icons, and the most common temperature categories first
+- [ ] Apply the responsive layout pass (one-handed phone reachability; laptop layout distinct from a scaled-up phone layout)
+- [ ] Apply the accessibility pass (touch targets, contrast, alt text, reduced motion) and confirm with an automated scan
+- [ ] Test and fix each checkpoint above against the specification before starting the next
+- [ ] Commit meaningful working checkpoints throughout
+- [ ] Deploy to a public HTTPS URL (GitHub Pages)
 
 ### Verify and revise
 
