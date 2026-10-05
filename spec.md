@@ -104,6 +104,21 @@ Translate every fixed brief requirement and the selected research-driven feature
 
 Define the weather inputs, recommendation categories, coded rules, and shared state. Weather values must come from the provider, and rules must follow the weather guidance cited in `research.md`. The selected location, date, and live weather data must produce one recommendation state that drives every visual and written output.
 
+**Weather inputs** (from Open-Meteo, per selected location + date): temperature, precipitation probability, UV index, heat index (or computed from temperature + humidity if not provided directly), wind chill (or computed from temperature + wind speed), wind speed, weather condition code (clear/cloudy/rain/snow/etc.).
+
+**Data flow**, per active character:
+
+1. Resolve location (manual entry or device geolocation) → coordinates, via Open-Meteo geocoding.
+2. Fetch weather for coordinates + selected date (today or up to 14 days out) from Open-Meteo.
+3. Map temperature to one of the 7 categories (`research.md` bands) → **outfit category**.
+4. Evaluate each reminder's threshold independently against the fetched values → zero or more **active reminders**.
+5. Derive a seed from (location, date, character ID) so the same combination always resolves the same random picks (see Content variation).
+6. Using that seed: pick one outfit style variation from the outfit category's 3+ options, weighted by the character's personality; pick one wording variation per active reminder.
+7. Combine into one **recommendation state** per character: `{ outfitCategory, outfitVariation, weatherConditionIcon, activeReminders: [{type, wordingVariation}], isForecast }`.
+8. Render: character's outfit (from `outfitVariation`), weather icon (from `weatherConditionIcon`), written recommendation text, and reminder text/icons — all read from this one state object, so nothing on screen can contradict anything else.
+
+Each character on screen has its own recommendation state (steps 3–8 run once per active character, sharing the same fetched weather from steps 1–2).
+
 ## Content variation
 
 Define at least three outfit variations for each recommendation category and at least three wording variations for each reminder type. Define how outfit and reminder variations are chosen independently at random, and how a previously selected date keeps the same variations, including whether they persist after the page reloads.
