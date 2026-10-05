@@ -108,6 +108,10 @@ Visual style: heavily inspired by Nintendo Mii / Wii-era avatars (simplified, ro
 
 Total: roughly 142 individual art pieces, generated incrementally over the build rather than all at once.
 
+### Deployment method
+
+**Decision:** GitHub Pages, as recommended by the brief. The project already has a dedicated GitHub repository ([inkinvader/weather](https://github.com/inkinvader/weather)); GitHub Pages serves static files directly from it over HTTPS at no cost, with no separate hosting account or server needed — a good fit since the app is entirely client-side (Open-Meteo calls go straight from the browser).
+
 ## Decisions
 
 Record the selected weather provider, forecast range, recommendation categories and rules, screen structure, visual direction, artwork approach (original, AI-generated, or appropriately licensed), deployment method, and one additional feature justified by the research. Briefly explain important trade-offs.
