@@ -33,6 +33,73 @@ Hand-drawn phone and laptop layouts for every screen, saved in `reference/`:
 
 Translate every fixed brief requirement and the selected research-driven feature into a testable requirement. Define the chosen behavior, content, controls, current and forecast data, responsive layout, accessibility, error handling, privacy, credits, and deployment. The main screen should make clear the location, date, units, data source, and whether conditions are current or forecast. Include an acceptance check for each requirement.
 
+### Weather data
+
+1. **Current and forecast data from one provider.** The app fetches current and forecast weather from Open-Meteo for the selected location and date.
+   *Check:* for any valid US location, current conditions and a 14-day-out forecast both return real values from Open-Meteo, visible on the main screen.
+2. **Forecast range.** The date picker allows today through 14 days ahead; dates outside that range cannot be selected.
+   *Check:* the calendar control opening from the date button only allows selecting today through day+14; no control exists to pick further out.
+3. **Units.** Temperature displays in Fahrenheit with the °F symbol shown (assumption: no Celsius toggle, since the brief scopes the app to US locations — flag if you want a toggle instead).
+   *Check:* every displayed temperature includes "°F".
+
+### Location
+
+4. **Manual entry and device location.** The location control accepts either a typed US city (geocoded via Open-Meteo) or the device's geolocation.
+   *Check:* typing a valid US city updates the main screen to that location's weather; tapping "use my location" (with permission granted) does the same using device coordinates.
+5. **Most-recent-location persistence.** Only the most recently selected location is saved on-device (`localStorage`); it is not sent to or retained by any server beyond the Open-Meteo API call itself.
+   *Check:* after selecting a new location and reloading the page, the main screen loads that same location without re-prompting; no prior locations are retained anywhere.
+
+### Main screen and character
+
+6. **Character(s) as the focus.** The main screen displays 1–5 user-built characters (per the character builder), arranged side by side in the scene.
+   *Check:* the number of characters shown matches the number of active/selected characters, up to 5, displayed side by side.
+7. **Single recommendation state drives all output.** For a given location + date + character, one recommendation state (derived from live weather values and the rules in `research.md`) determines that character's outfit, the weather icon, the written recommendation, and any reminders — no part of the display can contradict another.
+   *Check:* for a fixed location/date/character, outfit, icon, written text, and reminders are all internally consistent with the same temperature band and condition (see "Recommendation state and data flow" below).
+8. **Current vs. forecast indicator.** A "Forecast" badge appears next to the date whenever the selected date is not today; it's absent when viewing today.
+   *Check:* selecting any future date shows the badge; selecting today hides it.
+9. **Conditional reminders.** Reminder text/icon (umbrella, sunscreen, hydration, cold caution) appears next to the condition text only when that reminder's threshold (defined in `research.md`) is met for the selected location/date — not shown otherwise.
+   *Check:* a location/date combination below any reminder threshold shows no reminder text; one above a threshold shows the corresponding reminder.
+
+### Character builder
+
+10. **Trait customization.** The character builder lets the user set, per saved character: body type (fat/skinny/average), gender presentation, skin tone, hair, eyes, nose, mouth, ear, and personality (energetic/anxious/grumpy/chill/neutral) — scrollable tabs, ordered general → specific as listed.
+    *Check:* each trait tab is reachable by scrolling, and a selection in each tab visibly changes the character preview (except personality, which changes reaction behavior rather than appearance).
+11. **Character gallery.** A gallery view lets the user switch between, add, or remove saved characters (up to 5).
+    *Check:* the gallery shows all saved characters; selecting one makes it active; the limit of 5 is enforced (the add control is disabled or hidden at 5).
+
+### Content variation
+
+12. **Outfit variation.** Each of the 7 temperature categories (see `research.md`) has 3+ outfit style variations, selected independently at random per character, weighted (not determined) by that character's personality.
+    *Check:* repeated visits to the same weather category with a fresh random seed show different outfit styles across characters/visits; a character's personality visibly skews its style distribution over many draws without ever being user-selectable.
+13. **Reminder wording variation.** Each reminder type has 3+ wording variations, chosen independently at random.
+    *Check:* triggering the same reminder across multiple dates shows varied wording, not identical text each time.
+14. **Persistence of variation.** For a given (location, date, character) combination, the same outfit and reminder wording variations are shown on return visits, including after a page reload, until that combination's weather data changes.
+    *Check:* selecting the same past-selected date/location/character again — including after reloading the page — shows the same outfit and reminder wording as before.
+
+### Information screen
+
+15. **About content.** The Settings → About screen states the creator, Open-Meteo as the weather/geocoding data source (with CC BY 4.0 attribution), the recommendation methodology (temperature bands and reminder thresholds, with sources), privacy practices (per `research.md`), and art/style credits (AI-generated, Wii/Mii-era-inspired, non-commercial class assignment).
+    *Check:* each of the five required topics (creator, data source, methodology, privacy, art credits) is present and readable on the About screen.
+
+### Error handling
+
+16. **Loading state.** While fetching weather/location data, a spinner displays with "Loading" text.
+    *Check:* on a slow/throttled connection, the loading state appears before data arrives.
+17. **Missing data / service error / denied permission states.** Each shows an X icon with its specific message ("Missing data, try again in a moment." / "Error. Reload the page." / "Denied location permission.") and a back button returning to the previous screen.
+    *Check:* simulating each condition (e.g., blocking the API, denying the geolocation permission prompt) shows the correct message and a working back button.
+
+### Responsive layout and accessibility
+
+18. **Responsive layout.** Phone layout keeps primary controls reachable one-handed (lower two-thirds of the screen); laptop layout uses the wider viewport distinctly (e.g., side navigation, side-by-side panels) rather than a stretched phone layout.
+    *Check:* on a phone-width viewport, all primary controls fall within comfortable one-handed thumb reach; on a laptop-width viewport, the layout visibly differs from a simple scaled-up phone layout.
+19. **Accessibility baseline.** Interactive elements meet WCAG 2.2 AA: ≥24×24 CSS px touch targets, 4.5:1 text contrast (3:1 for large text/icons); weather icons and character/outfit state have alt text; conditions are never signaled by color alone; animations respect `prefers-reduced-motion`.
+    *Check:* an automated accessibility scan (e.g., axe) reports no violations of these criteria on each screen.
+
+### Deployment
+
+20. **Public HTTPS deployment.** The app is deployed via GitHub Pages at a public HTTPS URL, matching the approved specification.
+    *Check:* the deployed URL loads over HTTPS and matches the behavior verified locally.
+
 ## Recommendation state and data flow
 
 Define the weather inputs, recommendation categories, coded rules, and shared state. Weather values must come from the provider, and rules must follow the weather guidance cited in `research.md`. The selected location, date, and live weather data must produce one recommendation state that drives every visual and written output.
