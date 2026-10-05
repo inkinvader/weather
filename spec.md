@@ -169,6 +169,8 @@ After implementation or testing, record requirement changes and the evidence tha
 
 The Developer reviews and explicitly approves this specification and its screen designs before planning begins.
 
+**Approved by the Developer on 2026-10-05**, including the Fahrenheit-only units assumption (item 3) and the location+date+character persistence key (item 14).
+
 ## Saving the transcript
 
 After the Developer approves the specification, ask them to enter `save transcript`. When directed, save the complete conversation as `transcripts/spec-YYYY-MM-DD_HHMMSS.md`, label chat messages `Developer` and `Agent`, and confirm the saved path.
