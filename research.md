@@ -50,6 +50,27 @@ Compared three options, given the app deploys as static files on GitHub Pages wi
 
 **Decision:** Open-Meteo. Keyless, one provider for both geocoding and weather, no billing setup, sufficient forecast range and data fields for the brief's requirements.
 
+### Apparel guidance and reminder thresholds
+
+Temperature bands for outfit recommendation categories, calibrated to the Developer's own sense of temperature rather than generic guide defaults:
+
+| Range (°F) | Category | General outfit direction |
+|---|---|---|
+| Below 32 | Freezing | Heavy winter coat, insulated layers |
+| 32–45 | Cold | Winter coat, layered clothing |
+| 46–60 | Cool | Jacket or sweater |
+| 61–74 | Mild | T-shirt + light jacket, jeans |
+| 75–80 | Warm | T-shirt, light pants or shorts |
+| 81–89 | Hot | Shorts, breathable fabrics, sunscreen |
+| 90+ | Extreme heat | Minimal/breathable clothing, hydration emphasis |
+
+Reminder triggers, drawn from official sources rather than generic guides:
+
+- **Sunscreen**: EPA UV Index ≥ 3 ("Moderate" and up). Source: [EPA UV Index Scale](https://19january2021snapshot.epa.gov/sunsafety/uv-index-scale-0_.html).
+- **Umbrella**: precipitation probability ≥ 40% (Open-Meteo provides this field directly).
+- **Extra hydration / heat caution**: NWS Heat Index ≥ 90°F ("Hot" classification and up). Source: [NOAA Heat Index Chart](https://www.noaa.gov/sites/default/files/2022-05/heatindex_chart_rh.pdf).
+- **Cold/wind chill caution**: NWS wind chill applies at or below 50°F with wind ≥ 3 mph; flag when wind chill drops meaningfully below the actual temperature. Source: [NWS Wind Chill Temperature Index](https://www.weather.gov/media/ajk/brochures/Wind_Chill_Temperature_Index.pdf).
+
 ## Decisions
 
 Record the selected weather provider, forecast range, recommendation categories and rules, screen structure, visual direction, artwork approach (original, AI-generated, or appropriately licensed), deployment method, and one additional feature justified by the research. Briefly explain important trade-offs.
