@@ -133,6 +133,18 @@ Define at least three outfit variations for each recommendation category and at 
 
 List every art and graphical asset: the character, each outfit variation, icons, and any other visuals. For each, note where it appears, its format, and whether it will be created, generated, or licensed, with its credit or license.
 
+| Asset | Appears on | Format | Source | Count |
+|---|---|---|---|---|
+| Flattened body+outfit renders (3 body types × 2 gender presentations × 21 outfit variations) | Main screen (character display) | Transparent PNG | AI-generated, Wii/Mii-inspired style, generated incrementally during build | 126 |
+| Personality face/expression overlay crops (energetic, anxious, grumpy, chill, neutral) | Main screen (composited over body+outfit render) | Transparent PNG | AI-generated, same style/reference | 5 |
+| Character builder trait thumbnails (body type, gender presentation, skin tone, hair, eyes, nose, mouth, ear options) | Character builder | Transparent PNG | AI-generated, same style/reference; reuses/derives from the body+outfit renders where applicable | Scales with option count per trait (finalized during build) |
+| Weather condition icons (clear, partly cloudy, cloudy, rain, thunderstorm, snow, windy/fog) | Main screen (near condition text) | SVG or PNG | AI-generated or simple original vector icons, Wii/Mii-inspired style | ~7 |
+| Reminder icons (umbrella, sunscreen, hydration, cold caution) | Main screen (next to active reminder text) | SVG or PNG | AI-generated or simple original vector icons, same style | 4 |
+| Location background scenery (city/suburb/etc., varies with location or kept generic) | Main screen (behind character) | PNG or SVG | AI-generated or simple original illustration | 1+ (scope decided during build) |
+| Loading spinner / error "X" icon | Error/Loading screen | SVG | Original (simple vector) or a standard open-source icon set | 2 |
+
+All AI-generated assets credited on the Settings → About screen as "AI-generated, Wii/Mii-era-inspired style" — stylistic inspiration only, not an official license, per `research.md`'s Artwork approach decision. Open-Meteo data attribution (CC BY 4.0) also appears there.
+
 ## Out of scope
 
 Record features intentionally excluded from this project.
