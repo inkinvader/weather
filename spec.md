@@ -18,11 +18,16 @@ Read `AGENTS.md`, `brief.md`, `research.md`, and this file. Review the screen dr
 
 ## Goal
 
-State what the app should help its Users accomplish and name the user story or stories that define that need.
+Help a college student who moves between locations quickly check current or upcoming weather for wherever they are, and get a clear, character-based outfit recommendation plus relevant reminders (umbrella, sunscreen, hydration, cold caution), so they can decide what to wear and prepare without digging through a full weather app. Defined by the user story in `research.md`.
 
 ## Screen designs
 
-Draw every proposed screen by hand, in both phone and laptop layouts, on paper, a tablet, a whiteboard, or another hand-drawing surface. Save photos or exports in `reference/`, provide them to the Agent, and link them here. Use the drawings to define layout, hierarchy, controls, navigation, and important interaction states.
+Hand-drawn phone and laptop layouts for every screen, saved in `reference/`:
+
+- **Main screen** — [sketch-main-screen.jpg](reference/sketch-main-screen.jpg). One or more characters (side by side when multiple) stand in a scene matching location/time of day. Date and location buttons sit at the top (phone: inline with weather text; laptop: as separate control bars at the bottom), each opening an inline picker (calendar for date, within the 14-day forecast range; search/current-location for location) rather than navigating to a separate screen. Weather condition and temperature display near the top, with a "Forecast" badge shown whenever the selected date isn't today. Conditional reminder text/icon appears next to the condition text only when a threshold is triggered (not a permanent fixture). Bottom (phone) / left sidebar (laptop) navigation: Home, Character, Settings.
+- **Character builder** — [sketch-character-builder.jpg](reference/sketch-character-builder.jpg). Snapchat/Bitmoji-style builder. A gallery grid (top-left) switches between saved characters (1–5). The character preview is central/large. Scrollable trait tabs, ordered general → specific: Body type, Gender presentation, Skin tone, Hair, Eyes, Nose, Mouth, Ear, Personality — each tab shows a grid of selectable options. Laptop layout: Home/Character/Settings nav on the left (matching other screens), trait tabs and option grid on the right, character preview in the center.
+- **Settings** — [sketch-settings.jpg](reference/sketch-settings.jpg). List layout (Profile/Account-style items are placeholders for the real item set, still to be finalized — e.g., units, saved location, reset character data, privacy, About). The "About" item holds the brief's required info-screen content: creator, weather-data source, recommendation methodology, privacy practices, and art/style credits. Same Home/Character/Settings nav as other screens.
+- **Error / Loading** — [sketch-error-loading.jpg](reference/sketch-error-loading.jpg). Shared centered layout across four states: Loading (spinner + "Loading"); Missing data (X icon + "Missing data, try again in a moment."); Service error (X icon + "Error. Reload the page."); Denied location permission (X icon + "Denied location permission." + a back button to the previous screen).
 
 ## Requirements
 
