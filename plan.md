@@ -24,7 +24,15 @@ During implementation, follow the approved plan in working checkpoints and keep 
 
 ## Approach
 
-Summarize the structure, data flow, dependencies, task order, and main risks.
+**Structure:** Plain HTML/CSS/JS, no build step or framework (assumption — flag if you'd rather use a framework), deployed as static files via GitHub Pages. No backend; all state lives in the browser (`localStorage`).
+
+**Data flow:** Location (manual entry or device geolocation) → Open-Meteo geocoding → coordinates → Open-Meteo forecast fetch → per-character recommendation state (temperature category, outfit variation, active reminders, icon) → rendered to the main screen. See `spec.md`'s "Recommendation state and data flow" for the full chain.
+
+**Dependencies:** Open-Meteo API (geocoding + forecast endpoints, both keyless); an AI image-generation tool for character/outfit/icon art; no other external services.
+
+**Task order, and why:** Build the data/logic layer (weather fetch, recommendation rules, randomized-but-seeded variation picker) before investing in art, using placeholder shapes/colors — this lets every logic requirement (categories, thresholds, persistence) be verified correctly before the ~140-piece art set exists, so a logic bug doesn't surface only after art is already built around it. Art production (the largest single time cost) proceeds incrementally alongside UI work rather than all upfront, swapping into already-working placeholder slots. Responsive/accessibility work and cross-device testing come after the core screens exist, since they're easier to verify against something real. Usability testing and the resulting revision happen last, after deployment, since the brief requires testing the deployed app.
+
+**Main risks:** (1) ~140 individual AI-generated art pieces is a lot of production/review work for a solo two-week build — mitigated by generating incrementally and starting early; (2) AI-generated pieces need consistent proportions/style to line up visually — mitigated by locking a reference prompt/style guide before bulk generation; (3) geolocation permission behavior varies by browser — needs testing on the actual deployed HTTPS URL, not just localhost, since some browsers restrict geolocation on non-HTTPS/local origins; (4) time budget is tight once usability testing and a revision round are included — build checkpoints should stay small and testable rather than batching work.
 
 ## Checklist
 
