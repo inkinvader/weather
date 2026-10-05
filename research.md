@@ -71,6 +71,13 @@ Reminder triggers, drawn from official sources rather than generic guides:
 - **Extra hydration / heat caution**: NWS Heat Index ≥ 90°F ("Hot" classification and up). Source: [NOAA Heat Index Chart](https://www.noaa.gov/sites/default/files/2022-05/heatindex_chart_rh.pdf).
 - **Cold/wind chill caution**: NWS wind chill applies at or below 50°F with wind ≥ 3 mph; flag when wind chill drops meaningfully below the actual temperature. Source: [NWS Wind Chill Temperature Index](https://www.weather.gov/media/ajk/brochures/Wind_Chill_Temperature_Index.pdf).
 
+### Accessibility
+
+- **Touch targets**: WCAG 2.2 Level AA requires at least 24×24 CSS pixels for interactive elements (buttons, location/date pickers, etc.). Source: [WCAG 2.2, Success Criterion 2.5.8](https://www.w3.org/TR/WCAG22/).
+- **Color contrast**: 4.5:1 minimum for normal text, 3:1 for large text, and 3:1 for non-text UI elements (icons, control boundaries) against their background. Same source.
+- **One-handed phone use**: interactive controls should sit in the thumb-reachable lower two-thirds of the screen rather than top corners, consistent with the brief's one-handed-use requirement.
+- **Beyond baseline WCAG, specific to this app**: provide alt text for weather icons and character/outfit state for screen readers; never signal a condition (e.g., rain, extreme heat) through color alone — pair with icon and text; respect `prefers-reduced-motion` if the character has any animation.
+
 ## Decisions
 
 Record the selected weather provider, forecast range, recommendation categories and rules, screen structure, visual direction, artwork approach (original, AI-generated, or appropriately licensed), deployment method, and one additional feature justified by the research. Briefly explain important trade-offs.
