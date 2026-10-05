@@ -118,6 +118,15 @@ Record the selected weather provider, forecast range, recommendation categories 
 
 Once the recommendation categories are chosen, estimate the art needed: the character, three outfit variations per category, weather icons, and reminder icons. Use that estimate to choose the artwork approach.
 
+- **Weather provider:** Open-Meteo — keyless, CORS-enabled, one provider for both geocoding and weather data. See "Weather provider" above.
+- **Forecast range:** Today plus up to 14 days ahead (Open-Meteo supports up to 16; capped at 14 as a reasonable two-week planning window).
+- **Recommendation categories and rules:** Seven temperature bands (Freezing <32°F, Cold 32–45°F, Cool 46–60°F, Mild 61–74°F, Warm 75–80°F, Hot 81–89°F, Extreme heat 90°F+), each with 3+ outfit style variations. Reminders trigger independently: sunscreen (UV Index ≥3), umbrella (precipitation probability ≥40%), hydration/heat caution (NWS Heat Index ≥90°F), cold/wind-chill caution (wind chill applicable ≤50°F with wind ≥3mph). See "Apparel guidance and reminder thresholds" above.
+- **Screen structure:** Main screen (character, weather summary, location/date controls, recommendation, reminders), location/date selection, character builder (appearance + personality, 1–5 characters), information screen (source/credits/privacy/methodology). Detailed layout to be defined via hand-drawn designs in `spec.md`.
+- **Visual direction:** AI-generated, heavily inspired by Nintendo Mii / Wii-era avatars (simplified, rounded features, minimal facial detail, stylized proportions), described to the AI tool by trait rather than by naming the trademarked product. See "Artwork approach" above.
+- **Artwork approach:** AI-generated flattened body+outfit renders (body type × gender presentation × outfit variation), with personality as a separate lightweight face/expression overlay. ~142 pieces total, generated incrementally. See "Artwork approach" above.
+- **Deployment method:** GitHub Pages, serving directly from the project's existing repository.
+- **Additional feature (brief requirement):** Multiple characters (1–5) on screen at once, each user-built (appearance: body type, gender presentation, face/hair/skin tone) and assigned a user-chosen personality (energetic, anxious, grumpy, chill, neutral). Personality drives each character's reaction (movement/expression) and lightly weights which random outfit style it's more likely to draw, without the user or personality directly picking the outfit — keeping the brief's required random, independent outfit selection intact. Justified by reference research into companion/mascot apps (see Weather Pet references above) adapted away from literal pet imagery toward user-built, personality-driven characters.
+
 ## Revisions
 
 Record new evidence or changed decisions and explain why they changed.
