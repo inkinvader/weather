@@ -78,6 +78,13 @@ Reminder triggers, drawn from official sources rather than generic guides:
 - **One-handed phone use**: interactive controls should sit in the thumb-reachable lower two-thirds of the screen rather than top corners, consistent with the brief's one-handed-use requirement.
 - **Beyond baseline WCAG, specific to this app**: provide alt text for weather icons and character/outfit state for screen readers; never signal a condition (e.g., rain, extreme heat) through color alone — pair with icon and text; respect `prefers-reduced-motion` if the character has any animation.
 
+### Privacy
+
+- **Geolocation API**: the browser handles the permission prompt automatically; best practice is to request location only when the user actively chooses "use my location," not on page load. Source: [MDN Geolocation API](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API).
+- **No background tracking**: fetch location once per explicit user action — never use `watchPosition()` for continuous tracking, since this app has no ongoing need for it.
+- **Data minimization**: per the brief, only the most recent location is stored, and only on-device (e.g., `localStorage`) — not sent to or retained by any server, since weather/geocoding calls go directly from the browser to Open-Meteo.
+- **Info screen disclosure**: state that location (device GPS or manually typed city) is used only to fetch weather for that spot, stored locally on the user's device, never transmitted to a third party beyond the Open-Meteo API call itself, and never used for tracking.
+
 ## Decisions
 
 Record the selected weather provider, forecast range, recommendation categories and rules, screen structure, visual direction, artwork approach (original, AI-generated, or appropriately licensed), deployment method, and one additional feature justified by the research. Briefly explain important trade-offs.
