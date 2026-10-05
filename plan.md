@@ -38,9 +38,9 @@ During implementation, follow the approved plan in working checkpoints and keep 
 
 ### Approvals
 
-- [ ] Research approved
-- [ ] Specification approved
-- [ ] Plan approved
+- [x] Research approved
+- [x] Specification approved
+- [x] Plan approved
 
 ### Build
 
