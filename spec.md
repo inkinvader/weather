@@ -149,6 +149,18 @@ All AI-generated assets credited on the Settings → About screen as "AI-generat
 
 Record features intentionally excluded from this project.
 
+- Celsius unit toggle (Fahrenheit only; see Requirements item 3).
+- User accounts, login, or any server-side storage of personal data — everything persists only in the browser's `localStorage`.
+- Continuous/background location tracking (`watchPosition`) — location is fetched once per explicit user action.
+- Locations outside the United States.
+- Forecasts beyond 14 days out.
+- Saving or switching between multiple locations — only the single most recent location is retained.
+- More than 5 saved characters at once.
+- Directly picking a specific outfit or reminder wording variation — selection is always randomized (weighted by personality for outfit), never user-chosen.
+- Push notifications or any background alerting.
+- Sharing, social, or multi-user features.
+- Offline support — the app requires a live connection to Open-Meteo.
+
 ## Revisions
 
 After implementation or testing, record requirement changes and the evidence that prompted them. Update the screen drawings when a material layout or interaction changes.
