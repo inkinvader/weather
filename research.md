@@ -40,6 +40,16 @@ Collect 5–10 reference images from relevant products and interfaces. Save each
 
 Record each useful source, what it supports, and important limitations. Research the weather variables, apparel guidance, reminders, accessibility, privacy, artwork, weather providers, and technical options needed for informed decisions.
 
+### Weather provider
+
+Compared three options, given the app deploys as static files on GitHub Pages with no backend to hide a secret key:
+
+- **Open-Meteo** ([open-meteo.com](https://open-meteo.com/)) — No API key, CORS-enabled for direct client-side use. Free for non-commercial use: 10,000 calls/day (600/min). Current, hourly, and up to 16-day forecast. Includes its own free geocoding endpoint, needed to turn a manually entered US city into coordinates. Data licensed CC BY 4.0 — requires attribution, which fits the brief's required credits/info screen.
+- **National Weather Service** (api.weather.gov) — No API key; requires only a `User-Agent` header identifying the app/contact. Official US government source (strong credibility for citation), but only accepts coordinates, not city names, so a separate geocoding source would still be needed. Forecast extends about 7 days in day/night periods plus hourly.
+- **OpenWeatherMap** — Requires an API key, which would be exposed in client-side JS on a static site (readable via view-source by anyone). Its current forecast product (One Call API 3.0) also requires a credit card on file for the free 1,000 calls/day tier, even though it isn't charged unless that limit is exceeded. No functional benefit over the keyless options for this project.
+
+**Decision:** Open-Meteo. Keyless, one provider for both geocoding and weather, no billing setup, sufficient forecast range and data fields for the brief's requirements.
+
 ## Decisions
 
 Record the selected weather provider, forecast range, recommendation categories and rules, screen structure, visual direction, artwork approach (original, AI-generated, or appropriately licensed), deployment method, and one additional feature justified by the research. Briefly explain important trade-offs.
