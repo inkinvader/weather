@@ -44,7 +44,7 @@ During implementation, follow the approved plan in working checkpoints and keep 
 
 ### Build
 
-- [ ] Scaffold the project (HTML/CSS/JS, no build step) and confirm GitHub Pages serves a blank page at the public URL
+- [x] Scaffold the project (HTML/CSS/JS, no build step) and confirm GitHub Pages serves a blank page at the public URL (https://inkinvader.github.io/weather/, verified 200 over HTTPS)
 - [ ] Integrate Open-Meteo geocoding + forecast fetch (manual city entry and device geolocation); confirm real current + forecast data logs correctly for a test location
 - [ ] Implement temperature-band mapping and reminder-threshold evaluation (`research.md` rules); confirm correct category and active reminders for known test values
 - [ ] Implement the seeded random variation picker (keyed by location + date + character); confirm identical inputs always reproduce identical picks, and different inputs vary
