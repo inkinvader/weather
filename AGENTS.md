@@ -46,4 +46,8 @@ When the Developer directs the Agent to save the transcript, save the entire cur
 
 # Project
 
-Fill in as the project takes shape: how to run it locally, how to test it, and any commands or structure that aren't obvious from the code.
+Plain HTML/CSS/JS, no build step. Entry: `index.html`, `css/style.css`, `js/app.js`.
+
+- Run locally: `python -m http.server 8000` in the repo root, then open http://localhost:8000
+- Deploy: GitHub Pages from `master` root (repo `inkinvader/weather`)
+- Test: headless Edge screenshots / test pages; Node is not installed

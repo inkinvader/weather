@@ -1,0 +1,11 @@
+/* Base styles; real layout arrives with the main screen checkpoint. */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f4f7fb;
+  color: #1a2433;
+}
+
+#app {
+  padding: 16px;
+}
