@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Variation tests</title></head>
+<body>
+<pre id="out">running...</pre>
+<script src="../js/variation.js"></script>
+<script>
+  // Checks for js/variation.js: determinism, variety, personality weighting, independence.
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+  const V = Variation;
+  const austin = { latitude: 30.26715, longitude: -97.74306 };
+  const dallas = { latitude: 32.78306, longitude: -96.80667 };
+  const key = (loc, date, charId) => V.seedKeyFor(loc, date, charId);
+  const dateN = (i) => "d" + i; // many distinct date strings for statistics
+  const N = 6000;
+
+  // Share of draws landing on each variation id, varying only the date.
+  function outfitShares(category, personality) {
+    const counts = {};
+    for (let i = 0; i < N; i++) {
+      const id = V.pickOutfit(category, personality, key(austin, dateN(i), "char1")).id;
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    Object.keys(counts).forEach((id) => (counts[id] /= N));
+    return counts;
+  }
+  const near = (a, b, tol) => Math.abs((a || 0) - b) <= tol;
+
+  // --- Content shape ---
+  const cats = ["freezing", "cold", "cool", "mild", "warm", "hot", "extreme_heat"];
+  check("7 categories, each with >=3 outfit variations", cats.every((c) => V.OUTFIT_VARIATIONS[c] && V.OUTFIT_VARIATIONS[c].length >= 3));
+  const allIds = cats.flatMap((c) => V.OUTFIT_VARIATIONS[c].map((v) => v.id));
+  check("outfit variation ids are unique", new Set(allIds).size === allIds.length, allIds.length + " ids");
+  const types = ["sunscreen", "umbrella", "hydration", "cold_caution"];
+  check("4 reminder types, each with >=3 wordings", types.every((t) => V.REMINDER_WORDINGS[t] && V.REMINDER_WORDINGS[t].length >= 3));
+  const personalities = Object.keys(V.PERSONALITY_FAVORED_TAGS);
+  check("no variation ever has zero weight (any personality, any category)",
+    personalities.every((p) => cats.every((c) => V.outfitWeights(c, p).every((w) => w > 0))));
+
+  // --- Determinism (requirement 14) ---
+  const k = key(austin, "2026-10-14", "char1");
+  const firstOutfit = V.pickOutfit("mild", "energetic", k).id;
+  check("same inputs x500 -> same outfit", Array.from({ length: 500 }, () => V.pickOutfit("mild", "energetic", k).id).every((id) => id === firstOutfit), firstOutfit);
+  const firstWording = V.pickReminderWording("umbrella", k).id;
+  check("same inputs x500 -> same reminder wording", Array.from({ length: 500 }, () => V.pickReminderWording("umbrella", k).id).every((id) => id === firstWording), firstWording);
+  check("2-decimal rounding: tiny coordinate jitter keeps the same key",
+    key({ latitude: 30.26715, longitude: -97.74306 }, "d", "c") === key({ latitude: 30.2672, longitude: -97.7431 }, "d", "c"));
+
+  // --- Variety: different inputs vary (requirements 12, 13) ---
+  const outfitsOverDates = new Set(Array.from({ length: 200 }, (_, i) => V.pickOutfit("mild", "neutral", key(austin, dateN(i), "char1")).id));
+  check("200 dates, neutral -> all 3 mild outfits appear", outfitsOverDates.size === 3, [...outfitsOverDates].join(","));
+  const outfitsOverPlaces = new Set([austin, dallas].map((loc) => V.pickOutfit("mild", "neutral", key(loc, "2026-10-14", "char1")).id));
+  const anyPlaceDiffers = Array.from({ length: 50 }, (_, i) =>
+    V.pickOutfit("mild", "neutral", key(austin, dateN(i), "c")).id !== V.pickOutfit("mild", "neutral", key(dallas, dateN(i), "c")).id).some(Boolean);
+  check("different location can give a different outfit", anyPlaceDiffers);
+  const anyCharDiffers = Array.from({ length: 50 }, (_, i) =>
+    V.pickOutfit("mild", "neutral", key(austin, dateN(i), "charA")).id !== V.pickOutfit("mild", "neutral", key(austin, dateN(i), "charB")).id).some(Boolean);
+  check("two characters, same place+date, can wear different outfits", anyCharDiffers);
+  const wordingsOverDates = new Set(Array.from({ length: 200 }, (_, i) => V.pickReminderWording("hydration", key(austin, dateN(i), "char1")).id));
+  check("200 dates -> all 3 hydration wordings appear", wordingsOverDates.size === 3, [...wordingsOverDates].join(","));
+
+  // --- Personality weighting: neutral uniform, others skew toward favored tags ---
+  const neutral = outfitShares("mild", "neutral");
+  check("neutral mild ~ uniform (1/3 each, +/-3%)", ["mild-1", "mild-2", "mild-3"].every((id) => near(neutral[id], 1 / 3, 0.03)), JSON.stringify(neutral));
+  // energetic favors sporty + bold; mild-1 sporty, mild-2 relaxed, mild-3 bold -> 3/7, 1/7, 3/7
+  const energetic = outfitShares("mild", "energetic");
+  check("energetic mild ~ 43% sporty / 14% relaxed / 43% bold (+/-3%)",
+    near(energetic["mild-1"], 3 / 7, 0.03) && near(energetic["mild-2"], 1 / 7, 0.03) && near(energetic["mild-3"], 3 / 7, 0.03), JSON.stringify(energetic));
+  // anxious favors sharp + relaxed; freezing-1 relaxed, -2 sharp, -3 bold -> 3/7, 3/7, 1/7
+  const anxious = outfitShares("freezing", "anxious");
+  check("anxious freezing ~ 43% relaxed / 43% sharp / 14% bold (+/-3%)",
+    near(anxious["freezing-1"], 3 / 7, 0.03) && near(anxious["freezing-2"], 3 / 7, 0.03) && near(anxious["freezing-3"], 1 / 7, 0.03), JSON.stringify(anxious));
+  // only one favored tag present in this category -> 3/5, 1/5, 1/5
+  const energeticCold = outfitShares("cold", "energetic"); // cold-2 sporty is the only match
+  check("energetic cold ~ 60% sporty / 20% / 20% (+/-3%)",
+    near(energeticCold["cold-2"], 0.6, 0.03) && near(energeticCold["cold-1"], 0.2, 0.03) && near(energeticCold["cold-3"], 0.2, 0.03), JSON.stringify(energeticCold));
+  const grumpyMild = outfitShares("mild", "grumpy"); // relaxed + bold favored
+  check("grumpy skews away from sporty in mild (sporty ~14%, +/-3%)", near(grumpyMild["mild-1"], 1 / 7, 0.03), JSON.stringify(grumpyMild));
+  check("unfavored styles still appear for every personality (>5% share)",
+    personalities.every((p) => Object.values(outfitShares("mild", p)).every((share) => share > 0.05)));
+  check("unknown personality behaves like neutral (no crash, uniform weights)", V.outfitWeights("mild", "mystery").every((w) => w === 1));
+
+  // --- Independence: not a fixed bundle ---
+  const a = V.resolve({ outfitCategory: "hot", weatherConditionIcon: "clear", activeReminders: ["sunscreen"], isForecast: false }, austin, "2026-10-14", { id: "char1", personality: "chill" });
+  const b = V.resolve({ outfitCategory: "hot", weatherConditionIcon: "clear", activeReminders: ["sunscreen", "umbrella", "hydration"], isForecast: false }, austin, "2026-10-14", { id: "char1", personality: "chill" });
+  check("outfit unchanged when more reminders are active", a.outfitVariation === b.outfitVariation, a.outfitVariation);
+  check("sunscreen wording unchanged when other reminders are added",
+    a.activeReminders[0].wordingVariation === b.activeReminders.find((r) => r.type === "sunscreen").wordingVariation);
+  const pairs = new Set();
+  for (let i = 0; i < 400; i++) {
+    const s = key(austin, dateN(i), "char1");
+    pairs.add(V.pickOutfit("mild", "neutral", s).id + "+" + V.pickReminderWording("umbrella", s).id);
+  }
+  check("all 9 outfit x wording combinations occur (no fixed pairs)", pairs.size === 9, pairs.size + " of 9");
+
+  // --- Shape of the recommendation state (spec "Recommendation state") ---
+  check("resolve() returns the spec state shape",
+    b.outfitCategory === "hot" && b.weatherConditionIcon === "clear" && b.isForecast === false &&
+    b.activeReminders.length === 3 && b.activeReminders.every((r) => r.type && r.wordingVariation) && /^hot-\d$/.test(b.outfitVariation), JSON.stringify(b));
+  check("resolve() is repeatable", JSON.stringify(a) === JSON.stringify(V.resolve({ outfitCategory: "hot", weatherConditionIcon: "clear", activeReminders: ["sunscreen"], isForecast: false }, austin, "2026-10-14", { id: "char1", personality: "chill" })));
+
+  lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+  document.getElementById("out").textContent = lines.join("\n");
+  document.title = failed ? "FAILED" : "PASSED";
+</script>
+</body>
+</html>
