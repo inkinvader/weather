@@ -17,9 +17,11 @@
   <script src="../js/weather.js"></script>
   <script src="../js/recommend.js"></script>
   <script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
   <script src="../js/store.js"></script>
   <script src="../js/art.js"></script>
   <script src="../js/app.js"></script>
+  <script src="../js/builder.js"></script>
   <script>
     (async () => {
       const params = new URLSearchParams(location.search);
@@ -40,6 +42,13 @@
         root.querySelector("#city-input").value = "Austin";
         root.querySelector("form.search").requestSubmit();
         await wait();
+      }
+      // Character builder: ?screen=character &tab=hair &pick=spiky-blond &sheet=gallery
+      if (params.get("screen") === "character") {
+        root.querySelector('[data-action="nav-character"]').click();
+        if (params.get("tab")) root.querySelector("#tab-" + params.get("tab")).click();
+        if (params.get("pick")) root.querySelector('[data-option="' + params.get("pick") + '"]').click();
+        if (sheet === "gallery") root.querySelector(".gal-btn").click();
       }
       document.title = "LOADED";
     })();

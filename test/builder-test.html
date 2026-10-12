@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Builder tests</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    html, body { height: auto; }
+    pre#out { margin: 0; padding: 8px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<pre id="out">running...</pre>
+<script src="../js/weather.js"></script>
+<script src="../js/recommend.js"></script>
+<script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/app.js"></script>
+<script src="../js/builder.js"></script>
+<script>
+  // Drives the real character builder with clicks and keys on a 390x700 phone frame, and checks
+  // that every option is really drawn and really saved.
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+  const $ = (root, sel) => root.querySelector(sel);
+  const $$ = (root, sel) => Array.from(root.querySelectorAll(sel));
+  const text = (root, sel) => ($(root, sel) ? $(root, sel).textContent.trim() : null);
+  const rect = (el) => el.getBoundingClientRect();
+  const key = (el, k, extra) => { const ev = new KeyboardEvent("keydown", Object.assign({ key: k, bubbles: true, cancelable: true }, extra)); el.dispatchEvent(ev); return ev; };
+  const settle = async () => { for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const austin = { name: "Austin", state: "Texas", latitude: 30.26715, longitude: -97.74306 };
+  const T = Traits;
+
+  // ================= Pure: every option is actually drawn, and differently =================
+  const baseChar = T.defaultCharacter("x");
+  const draw = (character, view) => Art.characterSvg({ character: character, category: "mild", outfitId: "preview", tag: null, view: view || "head", decorative: true });
+  T.TRAITS.forEach((trait) => {
+    const drawings = trait.options.map((o) => draw(Object.assign({}, baseChar, { [trait.key]: o.id }), trait.view));
+    check("trait '" + trait.key + "': all " + trait.options.length + " options draw differently", new Set(drawings).size === trait.options.length);
+  });
+  check("trait order is general -> specific, as specified",
+    T.TRAITS.map((t) => t.tab).join() === "Body,Gender,Skin,Hair,Eyes,Nose,Mouth,Ear,Personality");
+  check("option counts: body 3, gender 2, skin 6, hair 8, eyes 6, nose 5, mouth 6, ear 4, personality 5",
+    T.TRAITS.map((t) => t.options.length).join() === "3,2,6,8,6,5,6,4,5");
+  check("body type specifies skinny / average / fat; personality specifies the five moods",
+    T.traitByKey("bodyType").options.map((o) => o.id).join() === "skinny,average,fat" &&
+    T.traitByKey("personality").options.map((o) => o.id).join() === "energetic,anxious,grumpy,chill,neutral");
+  check("every hair and skin option has a text label (colour is never the only cue)",
+    T.HAIR.concat(T.SKIN_TONES).every((o) => o.label && o.label.length > 2));
+  check("normalize fills missing/unknown traits and keeps valid ones",
+    JSON.stringify(T.normalize({ id: "q", hair: "nope", eyes: "wide" })) === JSON.stringify(Object.assign(T.defaultCharacter("q"), { eyes: "wide" })));
+  check("nextCharacterId never reuses an id in use", T.nextCharacterId([{ id: "char-1" }, { id: "char-3" }]) === "char-4" && T.nextCharacterId([]) === "char-1");
+  check("a normal outfit draws the chosen skin colour on the figure", draw(Object.assign({}, baseChar, { skinTone: "deep" }), "full").includes("#5b3a24"));
+  check("the chosen hair colour is drawn on the head", draw(Object.assign({}, baseChar, { hair: "long-black" }), "head").includes("#1f1a1a"));
+
+  // ================= Screen =================
+  function mount() {
+    const el = document.createElement("div");
+    el.style.cssText = "width:390px;height:700px;position:absolute;left:-5000px;top:0";
+    document.body.appendChild(el);
+    return el;
+  }
+  const real = { fetchWeather: WeatherApi.fetchWeather };
+  WeatherApi.fetchWeather = async (lat) => ({ days: Array.from({ length: 15 }, (_, i) => ({
+    date: "2026-10-" + String(12 + i).padStart(2, "0"), isToday: i === 0, temperatureF: 64 + i, highF: 64 + i, lowF: 50,
+    precipProbability: 5, uvIndex: 1, windMph: 4, humidity: 50, weatherCode: 2 })) });
+
+  (async () => {
+    AppStore.clearAll();
+    AppStore.setLocation(austin);
+    const root = mount();
+    await App.start(root);
+    check("home screen has a Character tab that is now enabled", Boolean($(root, '[data-action="nav-character"]')) && !$(root, '[data-action="nav-character"]').disabled);
+    $(root, '[data-action="nav-character"]').click();
+
+    check("Character tab opens the builder, title 'Character 1', nav marks Character as current",
+      Boolean($(root, ".builder")) && text(root, ".b-title") === "Character 1" && $(root, '.tab[aria-current="page"]').textContent.trim() === "Character");
+    check("9 tabs in order: Body, Gender, Skin, Hair, Eyes, Nose, Mouth, Ear, Personality",
+      $$(root, '[role="tab"]').map((t) => t.textContent.trim()).join() === "Body,Gender,Skin,Hair,Eyes,Nose,Mouth,Ear,Personality");
+    check("the tab strip scrolls sideways (more tabs than fit)", $(root, ".b-tabs").scrollWidth > $(root, ".b-tabs").clientWidth + 20,
+      $(root, ".b-tabs").scrollWidth + " wide in " + $(root, ".b-tabs").clientWidth);
+    check("tabs follow the ARIA tab pattern (one selected, panel labelled by it)",
+      $$(root, '[role="tab"][aria-selected="true"]').length === 1 && $(root, '[role="tabpanel"]').getAttribute("aria-labelledby") === "tab-bodyType");
+    check("first tab is Body: Skinny / Average / Fat with Average chosen",
+      $$(root, ".opt").map((o) => o.textContent.replace("✓", "").trim()).join() === "Skinny,Average,Fat" && $(root, '.opt[aria-pressed="true"]').textContent.includes("Average"));
+    check("body tab frames the whole figure; face tabs frame the head",
+      $(root, ".b-preview svg").getAttribute("viewBox") === "0 0 120 232");
+
+    // ---- every option on every tab: chooses it, saves it, changes the preview ----
+    let allSaved = true, allChanged = true, notes = [];
+    for (let ti = 0; ti < T.TRAITS.length; ti++) {
+      const trait = T.TRAITS[ti];
+      $(root, "#tab-" + trait.key).click();
+      if ($(root, '[role="tab"][aria-selected="true"]').id !== "tab-" + trait.key) { allSaved = false; notes.push("tab " + trait.key); }
+      const wantView = trait.view === "head" ? "16 2 88 88" : "0 0 120 232";
+      if ($(root, ".b-preview svg").getAttribute("viewBox") !== wantView) { allChanged = false; notes.push("view " + trait.key); }
+      if ($$(root, ".opt").length !== trait.options.length) { allSaved = false; notes.push("count " + trait.key); }
+      for (const option of trait.options) {
+        const before = $(root, ".b-preview svg").outerHTML;
+        const wasOn = AppStore.getCharacters()[0][trait.key] === option.id;
+        $(root, '[data-option="' + option.id + '"]').click();
+        const saved = AppStore.getCharacters()[0][trait.key] === option.id;
+        const pressed = $(root, '.opt[aria-pressed="true"]').dataset.option === option.id;
+        if (!saved || !pressed) { allSaved = false; notes.push("save " + trait.key + "/" + option.id); }
+        if (!wasOn && $(root, ".b-preview svg").outerHTML === before) { allChanged = false; notes.push("preview " + trait.key + "/" + option.id); }
+      }
+    }
+    check("all 40 options across the 9 tabs can be chosen, are saved immediately, and show as selected", allSaved, notes.join(" | "));
+    check("each tab frames the preview correctly, and every newly chosen option visibly changes the preview", allChanged, notes.join(" | "));
+    check("focus stays on the option just tapped", document.activeElement && document.activeElement.dataset.option === "neutral");
+
+    // ---- keyboard on the tab strip ----
+    $(root, "#tab-bodyType").click();
+    $(root, "#tab-bodyType").focus();
+    key(document.activeElement, "ArrowRight");
+    check("ArrowRight moves to the next tab and focuses it", document.activeElement.id === "tab-genderPresentation" && $(root, '[role="tab"][aria-selected="true"]').id === "tab-genderPresentation");
+    key(document.activeElement, "End");
+    check("End jumps to the last tab (Personality)", document.activeElement.id === "tab-personality");
+    key(document.activeElement, "ArrowRight");
+    check("ArrowRight on the last tab wraps to the first", document.activeElement.id === "tab-bodyType");
+    key(document.activeElement, "ArrowLeft");
+    check("ArrowLeft on the first tab wraps to the last", document.activeElement.id === "tab-personality");
+    key(document.activeElement, "Home");
+    check("Home jumps to the first tab", document.activeElement.id === "tab-bodyType");
+    check("only the selected tab is a Tab stop (roving tabindex)", $$(root, '[role="tab"]').filter((t) => t.tabIndex === 0).length === 1);
+
+    // ---- layout and sizes ----
+    $(root, "#tab-hair").click();
+    const frame = rect(root);
+    check("all controls are at least 44px: tabs, option tiles, gallery button, nav",
+      $$(root, ".b-tab, .opt, .gal-btn, .tab").every((el) => rect(el).width >= 44 && rect(el).height >= 44));
+    check("the preview keeps a decent size (at least 150px tall) with the options panel and nav visible", rect($(root, ".b-preview")).height >= 150,
+      Math.round(rect($(root, ".b-preview")).height) + " px");
+    check("option tiles sit in 4 columns inside the phone frame, no sideways overflow",
+      $$(root, ".opt").every((el) => rect(el).left >= frame.left - 0.5 && rect(el).right <= frame.right + 0.5) && $(root, ".builder").scrollWidth <= $(root, ".builder").clientWidth + 1 &&
+      new Set($$(root, ".opt").slice(0, 4).map((el) => Math.round(rect(el).top))).size === 1);
+    check("long option labels (e.g. 'Dark ponytail') fit inside their tile", $$(root, ".opt-label").every((l) => l.scrollWidth <= l.parentElement.clientWidth));
+    check("tile pictures are hidden from screen readers (the visible label names them); the preview has a label",
+      $$(root, ".opt svg").every((s) => s.getAttribute("aria-hidden") === "true") && $(root, ".b-preview svg").getAttribute("aria-label").startsWith("Preview of Character 1"));
+
+    // ---- choices show up on the home screen and survive leaving ----
+    $(root, "#tab-skinTone").click();
+    $(root, '[data-option="deep"]').click();
+    $(root, "#tab-hair").click();
+    $(root, '[data-option="long-black"]').click();
+    $(root, '[data-action="nav-home"]').click();
+    check("Home returns to the weather screen", Boolean($(root, ".temp")) && !$(root, ".builder"));
+    const homeFigure = $(root, ".character-art").outerHTML;
+    check("the home figure now has the chosen deep skin tone and long black hair", homeFigure.includes("#5b3a24") && homeFigure.includes("#1f1a1a"));
+    $(root, '[data-action="nav-character"]').click();
+    $(root, "#tab-hair").click();
+    check("coming back to the builder shows the saved choices", $(root, '.opt[aria-pressed="true"]').dataset.option === "long-black");
+    // ---- gallery ----
+    check("gallery button says how many characters (1/5) and has an accessible name", text(root, ".gal-btn") === "1/5" && $(root, ".gal-btn").getAttribute("aria-label").includes("1 of 5"));
+    $(root, ".gal-btn").click();
+    check("gallery opens as a dialog showing the one character, an add tile, and Remove disabled with a reason",
+      $(root, '[role="dialog"]').getAttribute("aria-modal") === "true" && $$(root, ".gal-item[data-select]").length === 1 && Boolean($(root, ".gal-add")) &&
+      $(root, '[data-action="remove-character"]').disabled && $(root, ".sheet").textContent.includes("at least one character"));
+    check("gallery opens with the current character focused", document.activeElement === $(root, '.gal-item[aria-pressed="true"]'));
+    key(document.activeElement, "Escape");
+    check("Escape closes the gallery and returns focus to the gallery button", !$(root, ".overlay-layer") && document.activeElement === $(root, ".gal-btn"));
+    $(root, ".gal-btn").click();
+    $(root, ".gal-add").click();
+    check("Add character: sheet closes, now editing 'Character 2' (default traits), 2 saved, announced",
+      !$(root, ".overlay-layer") && text(root, ".b-title") === "Character 2" && AppStore.getCharacters().length === 2 &&
+      JSON.stringify(AppStore.getCharacters()[1]) === JSON.stringify(T.defaultCharacter("char-2")) && text(root, "#b-status").startsWith("Added"), text(root, "#b-status"));
+    check("new character is not main (Make main button offered); the first one is still main",
+      Boolean($(root, '[data-action="make-main"]')) && AppStore.getMainCharacterId() === "char-1");
+    for (let i = 0; i < 3; i++) { $(root, ".gal-btn").click(); $(root, ".gal-add").click(); }
+    check("adding up to 5: counter reads 5/5", text(root, ".gal-btn") === "5/5" && AppStore.getCharacters().length === 5);
+    $(root, ".gal-btn").click();
+    check("at 5 characters the add control is gone (limit enforced)", !$(root, ".gal-add") && $$(root, ".gal-item[data-select]").length === 5);
+    check("gallery tiles are at least 44px and inside the frame", $$(root, ".gal-item").every((el) => rect(el).height >= 44 && rect(el).right <= frame.right + 0.5));
+    // focus trap
+    const sheetButtons = $$(root, ".overlay-layer button:not([disabled])");
+    sheetButtons[sheetButtons.length - 1].focus();
+    const tabKey = key(document.activeElement, "Tab");
+    check("Tab from the last control in the gallery wraps to the first", tabKey.defaultPrevented && document.activeElement === sheetButtons[0]);
+    // select
+    $(root, '.gal-item[data-select="char-3"]').click();
+    check("tapping a gallery tile makes it the one being edited (sheet stays open for Remove)", $(root, '.gal-item[data-select="char-3"]').getAttribute("aria-pressed") === "true" && Boolean($(root, ".overlay-layer")));
+    $(root, '[data-action="close-gallery"]').click();
+    check("after closing, the title shows the chosen character", text(root, ".b-title") === "Character 3");
+
+    // ---- make main ----
+    $(root, '[data-action="make-main"]').click();
+    check("Make main: badge replaces the button, saved as main, announced",
+      text(root, ".main-badge") === "★ Main character" && !$(root, '[data-action="make-main"]') && AppStore.getMainCharacterId() === "char-3" && text(root, "#b-status").includes("main"));
+    $(root, '[data-action="nav-home"]').click();
+    const order = $$(root, ".character").map((c) => c.dataset.character).join();
+    check("home: 5 characters, main (Character 3) exactly in the middle", order === "char-1,char-2,char-3,char-4,char-5" && $$(root, ".character")[2].dataset.main === "true", order);
+    $(root, '[data-action="nav-character"]').click();
+    check("builder reopens on the main character", text(root, ".b-title") === "Character 3" && Boolean($(root, ".main-badge")));
+
+    // ---- remove, with confirmation ----
+    $(root, ".gal-btn").click();
+    $(root, '.gal-item[data-select="char-5"]').click();
+    check("Remove button names the selected character", text(root, '[data-action="remove-character"]') === "Remove Character 5");
+    $(root, '[data-action="remove-character"]').click();
+    check("first tap only asks to confirm; nothing removed yet", text(root, '[data-action="remove-character"]') === "Tap again to remove Character 5" && AppStore.getCharacters().length === 5);
+    $(root, '.gal-item[data-select="char-4"]').click();
+    check("choosing a different character cancels the confirmation", text(root, '[data-action="remove-character"]') === "Remove Character 4");
+    $(root, '.gal-item[data-select="char-5"]').click();
+    $(root, '[data-action="remove-character"]').click();
+    $(root, '[data-action="remove-character"]').click();
+    check("second tap removes it: 4 left, counter updates, the add tile is back",
+      AppStore.getCharacters().map((c) => c.id).join() === "char-1,char-2,char-3,char-4" && Boolean($(root, ".gal-add")) && text(root, ".gal-btn") === "4/5");
+    check("after removing, editing moves to the main character (3)", $(root, '.gal-item[aria-pressed="true"]').dataset.select === "char-3");
+    $(root, '[data-action="remove-character"]').click();
+    $(root, '[data-action="remove-character"]').click();
+    check("removing the main character makes the first one main", AppStore.getMainCharacterId() === "char-1" && AppStore.getCharacters().length === 3,
+      AppStore.getMainCharacterId() + " / " + AppStore.getCharacters().length + " left");
+    $(root, '[data-action="close-gallery"]').click();
+    $(root, ".gal-btn").click();
+    $(root, ".gal-add").click();
+    check("adding again after removals gives a fresh id that is not main", AppStore.getCharacters().map((c) => c.id).join() === "char-1,char-2,char-4,char-5" && AppStore.getMainCharacterId() === "char-1");
+
+    // ---- a fresh page load (new root; the builder follows the newest screen) ----
+    const reloaded = mount();
+    await App.start(reloaded);
+    reloaded.querySelector('[data-action="nav-character"]').click();
+    reloaded.querySelector("#tab-skinTone").click();
+    check("reload: the saved characters (4) and the first one's deep skin tone are still there",
+      AppStore.getCharacters().length === 4 && reloaded.querySelector('.opt[aria-pressed="true"]').dataset.option === "deep" && text(reloaded, ".gal-btn") === "4/5");
+
+    // ---- tidy up ----
+    WeatherApi.fetchWeather = real.fetchWeather;
+    AppStore.clearAll();
+    lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+    document.getElementById("out").textContent = lines.join("\n");
+    document.title = failed ? "FAILED" : "PASSED";
+  })().catch((e) => {
+    document.getElementById("out").textContent = lines.join("\n") + "\nCRASH: " + e + "\n" + (e.stack || "");
+    document.title = "FAILED";
+  });
+</script>
+</body>
+</html>

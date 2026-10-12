@@ -114,6 +114,8 @@
     "extreme_heat-1": { sleeves: "none", pants: "short" },
     "extreme_heat-2": { sleeves: "none", pants: "short" },
     "extreme_heat-3": { sleeves: "none", pants: "short" },
+    // Not a real outfit: the plain tee-and-shorts the character builder shows (no hat, so hair is visible).
+    preview: { sleeves: "short", pants: "short" },
   };
   const CATEGORY_COLOR = {
     freezing: "#35588f",
@@ -125,40 +127,116 @@
     extreme_heat: "#d9473f",
   };
   const DARK_CLOTHES = "#2d3139";
-  const DEFAULT_SKIN = "#f0c6a2";
+  const INK = "#2a2320";
+  const SOFT = "rgba(0,0,0,.45)"; // nose and ear outlines that read on every skin tone
 
-  // Face changes with personality (spec: personality is a separate overlay, not part of the outfit).
-  function faceSvg(personality) {
-    const ink = "#2a2320";
-    const eyes = '<circle cx="51" cy="48" r="2.6" fill="' + ink + '"/><circle cx="69" cy="48" r="2.6" fill="' + ink + '"/>';
-    const faces = {
-      energetic: eyes + '<path d="M50 57q10 14 20 0z" fill="' + ink + '"/>',
-      anxious:
-        eyes +
-        '<path d="M46 41l8 -3M74 41l-8 -3" stroke="' + ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-        '<path d="M50 62q5 -4 10 0t10 0" stroke="' + ink + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
-        '<path d="M80 38q3 5 0 8q-3 -3 0 -8z" fill="#7bc4f0"/>',
-      grumpy:
-        eyes +
-        '<path d="M45 40l9 4M75 40l-9 4" stroke="' + ink + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
-        '<path d="M50 64q10 -8 20 0" stroke="' + ink + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
-      chill:
-        '<path d="M46 48h10M64 48h10" stroke="' + ink + '" stroke-width="2.6" stroke-linecap="round"/>' +
-        '<path d="M52 59q8 6 16 0" stroke="' + ink + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
-      neutral: eyes + '<path d="M52 60h16" stroke="' + ink + '" stroke-width="2.4" stroke-linecap="round"/>',
+  // Body width: body type and gender presentation each nudge the torso; a loose outfit adds more.
+  const BODY_WIDTH = { skinny: -8, average: 0, fat: 14 };
+  const GENDER_WIDTH = { feminine: -3, masculine: 4 };
+
+  // --- Head parts. Head circle is centred (60, 48), radius 24. ---
+  // Hair is returned in two layers: `back` goes behind the body, `front` over the head.
+  function hairLayers(hair) {
+    const color = hair.color;
+    const cap = '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + color + '"/>';
+    const layers = {
+      short: { back: "", front: cap },
+      long: { back: '<path d="M33 44h54v50q-27 9 -54 0z" fill="' + color + '"/>', front: cap },
+      curly: {
+        back: "",
+        front:
+          '<g fill="' + color + '"><circle cx="38" cy="40" r="8"/><circle cx="48" cy="30" r="9"/><circle cx="60" cy="27" r="9"/><circle cx="72" cy="30" r="9"/><circle cx="82" cy="40" r="8"/></g>' + cap,
+      },
+      spiky: { back: "", front: '<path d="M36 42L40 18l8 16 6 -18 6 17 6 -17 6 18 8 -16 4 24q-24 -10 -48 0z" fill="' + color + '"/>' },
+      bun: { back: "", front: cap + '<circle cx="60" cy="19" r="9" fill="' + color + '"/>' },
+      ponytail: { back: '<path d="M80 38q20 6 10 38q-8 -10 -14 -16z" fill="' + color + '"/>', front: cap },
+      wavy: {
+        back: '<path d="M34 44q-8 18 0 36q8 -6 4 -20zM86 44q8 18 0 36q-8 -6 -4 -20z" fill="' + color + '"/>',
+        front: cap,
+      },
+      bald: { back: "", front: "" },
     };
-    return faces[personality] || faces.neutral;
+    return layers[hair.style];
   }
 
-  // look = { category, outfitId, tag, personality, skin, alt }
+  function earsSvg(id, skin) {
+    const ear = (cx, flip) => {
+      const f = flip ? -1 : 1;
+      const pointed = '<path d="M' + cx + " 54l" + 9 * f + " -14l" + -5 * f + ' 16z" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>';
+      return {
+        round: '<circle cx="' + cx + '" cy="50" r="4.5" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
+        pointed: pointed,
+        big: '<ellipse cx="' + cx + '" cy="50" rx="5.5" ry="8" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
+        small: '<circle cx="' + cx + '" cy="50" r="2.8" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
+      }[id];
+    };
+    return ear(36, false) + ear(84, true);
+  }
+
+  function eyesSvg(id) {
+    const eye = (cx) =>
+      ({
+        round: '<circle cx="' + cx + '" cy="48" r="2.8" fill="' + INK + '"/>',
+        wide: '<circle cx="' + cx + '" cy="48" r="4.6" fill="#fff" stroke="' + INK + '" stroke-width="1.2"/><circle cx="' + cx + '" cy="48" r="2.2" fill="' + INK + '"/>',
+        narrow: '<ellipse cx="' + cx + '" cy="48" rx="3.6" ry="1.5" fill="' + INK + '"/>',
+        happy: '<path d="M' + (cx - 4) + ' 49q4 -5 8 0" stroke="' + INK + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>',
+        large: '<circle cx="' + cx + '" cy="48" r="3.8" fill="' + INK + '"/>',
+        sparkle: '<circle cx="' + cx + '" cy="48" r="3.4" fill="' + INK + '"/><circle cx="' + (cx + 1.2) + '" cy="46.8" r="1.1" fill="#fff"/>',
+      }[id]);
+    return eye(51) + eye(69);
+  }
+
+  function noseSvg(id) {
+    return {
+      dot: '<circle cx="60" cy="55" r="1.4" fill="' + SOFT + '"/>',
+      line: '<path d="M60 51v8" stroke="' + SOFT + '" stroke-width="1.6" stroke-linecap="round"/>',
+      button: '<circle cx="60" cy="56" r="2.6" fill="none" stroke="' + SOFT + '" stroke-width="1.4"/>',
+      pointed: '<path d="M60 50l-3.5 9h7z" fill="none" stroke="' + SOFT + '" stroke-width="1.4" stroke-linejoin="round"/>',
+      wide: '<path d="M55 57q5 4 10 0" fill="none" stroke="' + SOFT + '" stroke-width="1.6" stroke-linecap="round"/>',
+    }[id];
+  }
+
+  function mouthSvg(id) {
+    return {
+      smile: '<path d="M52 61q8 7 16 0" stroke="' + INK + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+      grin: '<path d="M50 60q10 12 20 0z" fill="' + INK + '"/>',
+      flat: '<path d="M53 63h14" stroke="' + INK + '" stroke-width="2.4" stroke-linecap="round"/>',
+      small: '<circle cx="60" cy="63" r="2.4" fill="' + INK + '"/>',
+      smirk: '<path d="M52 63q8 3 15 -3" stroke="' + INK + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
+      lips: '<path d="M52 62q4 -3 8 -1q4 -2 8 1q-8 7 -16 0z" fill="#c0524f"/>',
+    }[id];
+  }
+
+  // Personality is an expression layer over whatever eyes, nose and mouth were chosen:
+  // eyebrows, plus a mark or two (sweat, blush) and, for chill, heavy lids.
+  function expressionSvg(personality, skin) {
+    const brow = (d, width) => '<path d="' + d + '" stroke="' + INK + '" stroke-width="' + width + '" fill="none" stroke-linecap="round"/>';
+    return {
+      energetic:
+        brow("M46 40q5 -3 9 0", 2.2) + brow("M65 40q5 -3 9 0", 2.2) +
+        '<circle cx="43" cy="58" r="4" fill="#ff8aa0" opacity=".45"/><circle cx="77" cy="58" r="4" fill="#ff8aa0" opacity=".45"/>',
+      anxious:
+        brow("M46 41l9 -3", 2) + brow("M74 41l-9 -3", 2) +
+        '<path d="M82 38q3 5 0 8q-3 -3 0 -8z" fill="#7bc4f0"/>',
+      grumpy: brow("M45 40l10 4", 2.8) + brow("M75 40l-10 4", 2.8),
+      chill:
+        '<rect x="45" y="42" width="12" height="6.4" fill="' + skin + '"/><rect x="63" y="42" width="12" height="6.4" fill="' + skin + '"/>' +
+        brow("M46 48.4h10", 2.4) + brow("M64 48.4h10", 2.4) + brow("M46 40h9", 1.6) + brow("M65 40h9", 1.6),
+      neutral: brow("M46 40.5h9", 1.8) + brow("M65 40.5h9", 1.8),
+    }[personality];
+  }
+
+  // look = { character, category, outfitId, tag, alt, view: "full" | "head", decorative }
   function characterSvg(look) {
+    const character = Traits.normalize(look.character || { id: "?" });
     const outfit = OUTFIT_LOOK[look.outfitId] || OUTFIT_LOOK["mild-2"];
-    const skin = look.skin || DEFAULT_SKIN;
+    const skin = Traits.skinColor(character);
+    const hair = hairLayers(Traits.hairOf(character));
     const cloth = look.tag === "dark" ? DARK_CLOTHES : CATEGORY_COLOR[look.category] || CATEGORY_COLOR.mild;
     const trim = look.tag === "dark" ? "#454b55" : "#ffffff";
-    const wide = look.tag === "loose" ? 12 : 0; // loose = baggier torso and legs
+    const wide = BODY_WIDTH[character.bodyType] + GENDER_WIDTH[character.genderPresentation] + (look.tag === "loose" ? 12 : 0);
     const longPants = outfit.pants === "long";
-    const parts = [];
+    const parts = [hair.back];
 
     // legs: long pants, or shorts over bare lower legs
     const legW = 15 + wide / 3;
@@ -174,8 +252,8 @@
 
     // arms: bare skin, with a sleeve drawn over the top when the outfit has one
     const sleeveH = { long: 56, short: 24, none: 0 }[outfit.sleeves];
-    const torsoX = 38 - wide / 2;
     const torsoW = 44 + wide;
+    const torsoX = 60 - torsoW / 2;
     [torsoX - 12, torsoX + torsoW].forEach((x) => {
       parts.push('<rect x="' + x + '" y="86" width="12" height="58" rx="6" fill="' + skin + '"/>');
       if (sleeveH) parts.push('<rect x="' + x + '" y="86" width="12" height="' + sleeveH + '" rx="6" fill="' + cloth + '"/>');
@@ -188,10 +266,11 @@
       parts.push('<path d="M' + (torsoX + 8) + ' 82h' + (torsoW - 16) + 'v10q-' + (torsoW / 2 - 8) + ' 12 -' + (torsoW - 16) + ' 0z" fill="' + skin + '"/>');
     }
 
-    // head and hair
+    // head: ears behind, then head, hair, and the face features chosen in the builder
+    parts.push(earsSvg(character.ear, skin));
     parts.push('<circle cx="60" cy="48" r="24" fill="' + skin + '"/>');
-    parts.push('<path d="M36 46a24 24 0 0 1 48 0q-24 -14 -48 0z" fill="#5b3a29"/>');
-    parts.push(faceSvg(look.personality));
+    parts.push(hair.front);
+    parts.push(noseSvg(character.nose), eyesSvg(character.eyes), mouthSvg(character.mouth), expressionSvg(character.personality, skin));
     if (outfit.glasses) parts.push('<rect x="43" y="44" width="34" height="9" rx="4" fill="#1d1d1d" opacity=".85"/>');
 
     // accessories only when the outfit's name mentions them (the test keeps name and drawing in sync)
@@ -208,12 +287,12 @@
       parts.push('<rect x="' + (torsoX - 2) + '" y="70" width="' + (torsoW + 4) + '" height="13" rx="6" fill="#c9553d"/>');
     }
 
-    return (
-      // No fixed size: CSS scales the figure to the room available, anchored to the ground.
-      '<svg class="character-art" viewBox="0 0 120 232" preserveAspectRatio="xMidYMax meet" role="img" aria-label="' + look.alt + '">' +
-      parts.join("") +
-      "</svg>"
-    );
+    // "head" frames just the head and hair (builder face tabs, gallery thumbnails); no fixed size:
+    // CSS scales the figure to the room available, anchored to the ground.
+    const viewBox = look.view === "head" ? "16 2 88 88" : "0 0 120 232";
+    const aspect = look.view === "head" ? "xMidYMid meet" : "xMidYMax meet";
+    const a11y = look.decorative ? 'aria-hidden="true"' : 'role="img" aria-label="' + look.alt + '"';
+    return '<svg class="character-art" viewBox="' + viewBox + '" preserveAspectRatio="' + aspect + '" ' + a11y + ">" + parts.join("") + "</svg>";
   }
 
   window.Art = { WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, weatherIcon, reminderIcon, sceneSvg, characterSvg };

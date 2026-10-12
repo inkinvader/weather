@@ -6,6 +6,7 @@
 <iframe id="frame" style="display:none"></iframe>
 <script src="../js/recommend.js"></script>
 <script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
 <script src="../js/store.js"></script>
 <script>
   // Checks for js/store.js. The "survives a reload" test loads a helper page twice (write, then
@@ -44,7 +45,9 @@
     const written = await frameRun("write");
     const read = await frameRun("read"); // fresh document, fresh JS
     check("location survives reload", read.location && read.location.name === "Austin" && read.location.latitude === 30.26715, JSON.stringify(read.location));
-    check("saved characters survive reload", same(read.characters, [{ id: "char-1", personality: "energetic" }, { id: "char-2", personality: "grumpy" }]));
+    check("saved characters survive reload (completed with default traits)",
+      same(read.characters, [{ id: "char-1", personality: "energetic" }, { id: "char-2", personality: "grumpy" }].map(Traits.normalize)) &&
+      read.characters.every((c) => c.hair === "short-brown" && c.bodyType === "average"));
     check("cached recommendation state survives reload and is reused (no re-roll)", same(read.state, written.state) && read.resolveCalls === 0,
       read.state.outfitVariation + ", resolve calls after reload: " + read.resolveCalls);
 
@@ -53,7 +56,7 @@
     S.clearAll();
 
     // --- Defaults and character limits ---
-    check("first run -> one default neutral character", same(S.getCharacters(), [{ id: "char-1", personality: "neutral" }]));
+    check("first run -> one default neutral character with every trait set", same(S.getCharacters(), [Traits.defaultCharacter("char-1")]) && S.getCharacters()[0].personality === "neutral");
     check("first run -> no saved location", S.getLocation() === null);
     const five = Array.from({ length: 5 }, (_, i) => ({ id: "c" + i, personality: "neutral" }));
     S.saveCharacters(five);
@@ -73,6 +76,10 @@
     check("main must be one of the saved characters", threw && S.getMainCharacterId() === "b");
     S.saveCharacters([{ id: "a", personality: "chill" }, { id: "c", personality: "neutral" }]);
     check("main character removed -> falls back to the first", S.getMainCharacterId() === "a");
+    S.setMainCharacterId("c");
+    S.saveCharacters([{ id: "a", personality: "chill" }, { id: "b", personality: "grumpy" }]); // c removed
+    S.saveCharacters([{ id: "a", personality: "chill" }, { id: "b", personality: "grumpy" }, { id: "c", personality: "neutral" }]); // a new "c" later
+    check("a new character that reuses a removed main's id does NOT inherit main", S.getMainCharacterId() === "a", S.getMainCharacterId());
     S.clearAll();
     check("clearAll also forgets the main choice", S.getMainCharacterId() === "char-1" && !localStorage.getItem("weatherfit.v1.main"));
 
@@ -144,7 +151,10 @@
     localStorage.setItem("weatherfit.v1.characters", "[1,2");
     localStorage.setItem("weatherfit.v1.cache", "garbage");
     check("corrupt saved data -> treated as empty, no crash",
-      S.getLocation() === null && same(S.getCharacters(), [{ id: "char-1", personality: "neutral" }]) && S.getCachedState(austin, "d", "c", "f") === null);
+      S.getLocation() === null && same(S.getCharacters(), [Traits.defaultCharacter("char-1")]) && S.getCachedState(austin, "d", "c", "f") === null);
+    localStorage.setItem("weatherfit.v1.characters", JSON.stringify([{ id: "x", personality: "nonsense", hair: "mohawk", eyes: "wide" }]));
+    check("saved character with unknown/missing traits -> repaired to defaults, valid traits kept",
+      same(S.getCharacters(), [Object.assign(Traits.defaultCharacter("x"), { eyes: "wide" })]), JSON.stringify(S.getCharacters()));
     localStorage.setItem("weatherfit.v1.location", JSON.stringify({ latitude: "x" }));
     check("saved location with wrong field types -> ignored", S.getLocation() === null);
     S.clearAll();

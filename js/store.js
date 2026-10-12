@@ -83,23 +83,27 @@
   }
 
   // --- Characters ---------------------------------------------------------------------------
-  // First run has one neutral character so the main screen always has someone to show.
-  // Trait fields (body type, hair, ...) are added by the character builder.
+  // First run has one default (neutral) character so the main screen always has someone to show.
+  // Every character passes through Traits.normalize, so a missing or unknown trait (an older save,
+  // hand-edited data) falls back to its default instead of leaving a half-drawn character.
   function defaultCharacters() {
-    return [{ id: "char-1", personality: "neutral" }];
+    return [Traits.defaultCharacter("char-1")];
   }
 
   function getCharacters() {
     const saved = readJson(KEY_CHARACTERS);
-    const valid = Array.isArray(saved) && saved.length >= 1 && saved.length <= MAX_CHARACTERS;
-    return valid ? saved : defaultCharacters();
+    const valid = Array.isArray(saved) && saved.length >= 1 && saved.length <= MAX_CHARACTERS && saved.every((c) => c && c.id);
+    return valid ? saved.map(Traits.normalize) : defaultCharacters();
   }
 
   function saveCharacters(characters) {
     if (!Array.isArray(characters) || characters.length < 1 || characters.length > MAX_CHARACTERS) {
       throw new Error("Between 1 and " + MAX_CHARACTERS + " characters are required");
     }
-    writeRaw(KEY_CHARACTERS, JSON.stringify(characters));
+    writeRaw(KEY_CHARACTERS, JSON.stringify(characters.map(Traits.normalize)));
+    // Forget a main choice whose character was removed, so a later character that reuses the
+    // same id can't silently inherit it.
+    if (!characters.some((c) => c.id === readRaw(KEY_MAIN))) removeRaw(KEY_MAIN);
   }
 
   // The "main" character stands in the middle of the scene and its wording is the one the

@@ -54,11 +54,10 @@
     const alt =
       "Character " + number + (isMain && total > 1 ? " (main)" : "") + ", " + character.personality + ", wearing " + variation.name.toLowerCase();
     const art = Art.characterSvg({
+      character: character,
       category: state.outfitCategory,
       outfitId: state.outfitVariation,
       tag: variation.tag,
-      personality: character.personality,
-      skin: character.skinColor,
       alt: alt,
     });
     return (
@@ -83,13 +82,22 @@
     return '<ul class="reminders" aria-label="Reminders">' + items + "</ul>";
   }
 
-  // Character and Settings arrive in later checkpoints, so they are present but inactive for now.
-  const navHtml =
-    '<nav class="tabbar" aria-label="Main">' +
-    '<button type="button" class="tab" aria-current="page"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/></svg><span>Home</span></button>' +
-    '<button type="button" class="tab" disabled><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Character</span></button>' +
-    '<button type="button" class="tab" disabled><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span>Settings</span></button>' +
-    "</nav>";
+  // Bottom navigation, shared by every screen. `current` is "home" or "character"; Settings arrives
+  // in a later checkpoint, so it is present but inactive for now.
+  function navHtml(current) {
+    const tab = (name, action, label, icon, disabled) =>
+      '<button type="button" class="tab"' + (action ? ' data-action="' + action + '"' : "") + (disabled ? " disabled" : "") +
+      (current === name ? ' aria-current="page"' : "") + ">" + icon + "<span>" + label + "</span></button>";
+    const svg = (body, extra) =>
+      '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" ' + (extra || "") + ">" + body + "</svg>";
+    return (
+      '<nav class="tabbar" aria-label="Main">' +
+      tab("home", "nav-home", "Home", svg('<path d="M4 11l8-7 8 7v9H4z"/>', 'stroke-linejoin="round"')) +
+      tab("character", "nav-character", "Character", svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>')) +
+      tab("settings", null, "Settings", svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>', 'stroke-linecap="round"'), true) +
+      "</nav>"
+    );
+  }
 
   const sourceHtml =
     '<p class="source">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0)</p>';
@@ -139,7 +147,7 @@
       remindersHtml(mainState) +
       "</div></header>" +
       '<main class="stage">' + figures + "</main>" +
-      controlsHtml(view) + sourceHtml + navHtml +
+      controlsHtml(view) + sourceHtml + navHtml("home") +
       "</div>";
   }
 
@@ -148,7 +156,7 @@
     root.innerHTML =
       '<div class="screen"><div class="scene">' + Art.sceneSvg() + "</div>" +
       '<header class="top"><div class="summary"><p class="place">Choose a location to see today\'s outfit</p></div></header>' +
-      '<main class="stage"></main>' + controlsHtml({}) + sourceHtml + navHtml + "</div>";
+      '<main class="stage"></main>' + controlsHtml({}) + sourceHtml + navHtml("home") + "</div>";
   }
 
   // Plain-text placeholders with the final wording; the icon layouts come with the Error/Loading
@@ -252,6 +260,13 @@
 
     // Back returns to whatever was on screen before the picker flow began.
     function goBack() {
+      if (state.weather) showMain();
+      else showNoLocation();
+    }
+
+    // Home tab (from the character builder): characters may have changed, so redraw from storage.
+    function goHome() {
+      window.Builder.hide();
       if (state.weather) showMain();
       else showNoLocation();
     }
@@ -368,6 +383,11 @@
           return focusAction(state.dayIndex === state.weather.days.length - 1 ? "open-date" : "next-day");
         case "use-device": return useDeviceLocation();
         case "back": return goBack();
+        case "nav-character":
+          closeSheet(false);
+          state.searchId++; // anything pending from a picker is now stale
+          return window.Builder.show();
+        case "nav-home": return window.Builder && window.Builder.isActive() ? goHome() : undefined;
       }
     });
 
@@ -395,6 +415,8 @@
       }
     });
 
+    if (window.Builder) window.Builder.attach(root); // the Character tab; it has its own handlers
+
     // First screen: the saved place if there is one, otherwise the location picker straight away.
     const saved = AppStore.getLocation();
     if (!saved) {
@@ -405,5 +427,5 @@
     await loadPlace(saved);
   }
 
-  window.App = { render, renderNoLocation, renderMessage, start, formatDate, orderForStage };
+  window.App = { render, renderNoLocation, renderMessage, start, formatDate, orderForStage, navHtml };
 })();
