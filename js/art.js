@@ -308,6 +308,7 @@
   // --- Head parts, drawn in a 120-wide head space (centre 60,48, radius 24) and scaled up later ---
   // Hair is returned in two layers: `back` goes behind the body, `front` over the head.
   function hairLayers(hair, V) {
+    if (hair.style === "bald") return { back: "", front: "" };
     const color = hair.color;
     const fill = V(color, "sphere");
     const cap = '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + fill + '"/>';
@@ -383,6 +384,37 @@
     }[id];
   }
 
+  // Facial hair, in head space (centre 60,48; the face is a circle of radius 24; the chin is at y=72).
+  // It takes the character's hair colour (a bald character gets dark brown). `behind` sits under the
+  // nose, eyes and mouth; the mustache is drawn after the beard and before the nose.
+  function facialHairSvg(id, hairColor, V, defs) {
+    if (id === "clean") return { behind: "", mustache: "" };
+    const color = hairColor === "#000000" ? "#3a2a22" : hairColor;
+    const fill = V(color, "sphere");
+    const BEARD = "M36 55C35 67 44 80 60 80C76 80 85 67 84 55C80 60 72 62 60 62C48 62 40 60 36 55Z";
+    const FULL = "M35 53C32 70 44 85 60 85C76 85 88 70 85 53C81 58 72 60 60 60C48 60 39 58 35 53Z";
+    const GOATEE = "M50 63C49 73 54 80 60 80C66 80 71 73 70 63C66 67 54 67 50 63Z";
+    const MUSTACHE = "M48 59C50 54 56 54 60 57C64 54 70 54 72 59C68 62 63 60 60 59C57 60 52 62 48 59Z";
+    const shape = (d) => '<path d="' + d + '" fill="' + fill + '" stroke="#2a1f33" stroke-opacity=".4" stroke-width="1" stroke-linejoin="round"/>';
+    if (id === "stubble") {
+      // a faint shadow of hair over the lower face, kept inside the face circle, with a few short bristles
+      const clip = nextId("stubble");
+      defs.push('<clipPath id="' + clip + '"><circle cx="60" cy="48" r="24"/></clipPath>');
+      const dots = [[46, 66], [52, 70], [58, 72], [64, 72], [70, 70], [74, 66], [42, 60], [78, 60], [50, 64], [56, 67], [62, 67], [68, 64], [54, 60.5], [66, 60.5], [45, 55], [75, 55], [60, 64.5], [48, 69]];
+      return {
+        behind: '<g clip-path="url(#' + clip + ')" stroke="none"><path d="' + BEARD + '" fill="' + color + '" opacity=".3"/>' + dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r=".9" fill="' + color + '" opacity=".6"/>').join("") + "</g>",
+        mustache: "",
+      };
+    }
+    return {
+      clean: { behind: "", mustache: "" },
+      mustache: { behind: "", mustache: shape(MUSTACHE) },
+      goatee: { behind: shape(GOATEE), mustache: "" },
+      beard: { behind: shape(BEARD), mustache: "" },
+      full: { behind: shape(FULL), mustache: shape(MUSTACHE) },
+    }[id];
+  }
+
   // Personality is an expression layer over whatever eyes, nose and mouth were chosen:
   // eyebrows, plus a mark or two (sweat, blush) and, for chill, heavy lids.
   function expressionSvg(personality, skin) {
@@ -401,6 +433,13 @@
       neutral: brow("M46 40.5h9", 1.8) + brow("M65 40.5h9", 1.8),
     }[personality];
   }
+
+  // Hood silhouette (figure space). Outer: an arch that peaks at y=3, well above the head (whose top is
+  // at y=13), fully encloses the head (the head is 57.6 wide), and flares from about 66 wide at head height to 80
+  // wide at the shoulders. Opening: the face.
+  const HOOD_OUTER = "M20 90C21 62 26 40 32 28C38 12 52 6 60 3C68 6 82 12 88 28C94 40 99 62 100 90Q60 99 20 90Z";
+  const HOOD_OPENING = "M34.5 46C34.5 32 50 19 60 18C70 19 85.5 32 85.5 46C85.5 62 74 74 60 74C46 74 34.5 62 34.5 46Z";
+  const HOOD_GEOMETRY = { apexY: 3, headTopY: 13, widthAtHeadCentre: 66, bottomWidth: 80, headRadius: 28.8, headCentreY: 42 };
 
   // The figure's drawing area: 120 wide, 200 tall. The head is large (Mii-style proportions).
   const FIGURE_WIDTH = 120;
@@ -530,7 +569,7 @@
     if (!hoodUp) body.push(scarfSvg);
     // hoodie drawstrings hang from under the hood onto the chest
     if (outfit.drawstrings) {
-      body.push('<path d="M49 82q-3 11 -1 22M71 82q3 11 1 22" stroke="#f4f1ea" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="48" cy="105" r="2.3" fill="#f4f1ea"/><circle cx="72" cy="105" r="2.3" fill="#f4f1ea"/>');
+      body.push('<path d="M49 90q-3 11 -1 22M71 90q3 11 1 22" stroke="#f4f1ea" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="48" cy="113" r="2.3" fill="#f4f1ea"/><circle cx="72" cy="113" r="2.3" fill="#f4f1ea"/>');
     }
     // a short neck; the head's shadow falls only on the neck and chest, clipped to them
     body.push('<rect x="53" y="62" width="14" height="18" rx="5" fill="' + V(skin, "cyl") + '"/>');
@@ -540,32 +579,34 @@
 
     // head group: scaled-up head space; the head is a shaded sphere with a glossy highlight
     const head = [];
-    head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round">' + earsSvg(character.ear, null, V, skin) + '<circle cx="60" cy="48" r="24" fill="' + V(skin, "sphere") + '"/>' + hair.front + "</g>");
+    head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round">' + (hoodUp ? "" : earsSvg(character.ear, null, V, skin)) + '<circle cx="60" cy="48" r="24" fill="' + V(skin, "sphere") + '"/>' + hair.front + "</g>");
     if (hair.front) head.push('<path d="M40 33q10 -9 24 -8" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" fill="none" stroke-linecap="round"/>');
     head.push(gleam(45, 36, 7, 4.5, -28, 0.5));
+    const hairColor = Traits.hairOf(character).color;
+    const facial = facialHairSvg(character.facialHair, hairColor, V, defs);
+    head.push(facial.behind, facial.mustache);
     head.push(noseSvg(character.nose), eyesSvg(character.eyes), mouthSvg(character.mouth), expressionSvg(character.personality, skin));
     if (outfit.glasses) head.push('<rect x="42" y="43" width="36" height="10" rx="4.5" fill="#1d1d1d" opacity=".88"/><rect x="45" y="44.5" width="12" height="2.4" rx="1.2" fill="#fff" opacity=".35"/>');
     // accessories only when the outfit's name mentions them (the test keeps name and drawing in sync)
     if (outfit.cap) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M34 40a26 22 0 0 1 52 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="58" y="36" width="40" height="7" rx="3.5" fill="' + V(shade(outfit.accent, -0.15), "vert") + '"/></g>' + gleam(50, 28, 8, 3.5, -20, 0.7));
     if (outfit.sunHat) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><ellipse cx="60" cy="31" rx="40" ry="7" fill="' + V(outfit.accent, "vert") + '"/><path d="M40 31a20 16 0 0 1 40 0z" fill="' + V(shade(outfit.accent, 0.15), "sphere") + '"/><rect x="40" y="26" width="40" height="5" fill="#c9553d"/></g>');
     if (outfit.beanie) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M35 38a25 24 0 0 1 50 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="34" y="35" width="52" height="7" rx="3" fill="' + V(shade(outfit.accent, -0.2), "vert") + '"/><circle cx="60" cy="14" r="5" fill="' + V(shade(outfit.accent, 0.2), "sphere") + '"/></g>' + gleam(48, 26, 8, 4, -20, 0.6));
-    // Hood up: a soft bell-shaped cowl (a slight peak on top, widening onto the shoulders) over the head,
-    // with an oval opening for the face, a centre seam, fold lines, a lit highlight, and a soft shadow
-    // on the face where the hood frames it (clipped to the opening, so it stays on the model).
+    // Hood up, drawn like a real hoodie hood: a pointed, tent-like arch that peaks well above the head,
+    // flares out over the shoulders, and hugs the face with only a thin band at the cheeks (thick fabric
+    // sits above the brows). It has a centre seam, fold lines, a highlight, and a soft shadow on the face
+    // where it frames it (clipped to the opening, so it stays on the model).
     let hoodFrame = "";
     if (hoodUp) {
       const hoodFill = outfit.hoodColor || outfit.top;
-      const outer = "M30 86C27 70 29 52 29 40C29 22 44 10 56 6L60 3L64 6C76 10 91 22 91 40C91 52 93 70 90 86Q60 94 30 86Z";
-      const opening = "M38 48a22 25 0 1 0 44 0a22 25 0 1 0 -44 0Z";
       const openClip = nextId("hoodopen");
-      defs.push('<clipPath id="' + openClip + '"><path d="' + opening + '"/></clipPath>');
+      defs.push('<clipPath id="' + openClip + '"><path d="' + HOOD_OPENING + '"/></clipPath>');
       hoodFrame =
-        '<path fill-rule="evenodd" d="' + outer + opening + '" fill="' + V(hoodFill, "cyl") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>' +
-        '<g clip-path="url(#' + openClip + ')" stroke="none"><rect data-shadow="body" x="30" y="20" width="60" height="60" fill="' + edgeFill + '"/></g>' +
-        '<path d="' + opening + '" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.4"/>' +
-        '<path d="M60 4V22" stroke="' + shade(hoodFill, -0.3) + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
-        '<path d="M33 32q-5 22 -2 50M87 32q5 22 2 50" stroke="' + shade(hoodFill, -0.25) + '" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".7"/>' +
-        '<ellipse cx="42" cy="24" rx="8" ry="4" fill="' + shineFill + '" stroke="none" transform="rotate(-35 42 24)" opacity=".75"/>';
+        '<path fill-rule="evenodd" d="' + HOOD_OUTER + HOOD_OPENING + '" fill="' + V(hoodFill, "cyl") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>' +
+        '<g clip-path="url(#' + openClip + ')" stroke="none"><rect data-shadow="body" x="28" y="14" width="64" height="66" fill="' + edgeFill + '"/></g>' +
+        '<path d="' + HOOD_OPENING + '" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.4"/>' +
+        '<path d="M60 5V17" stroke="' + shade(hoodFill, -0.3) + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
+        '<path d="M44 16C34 34 29 60 27 88M76 16C86 34 91 60 93 88" stroke="' + shade(hoodFill, -0.25) + '" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".7"/>' +
+        '<ellipse cx="44" cy="22" rx="8" ry="4" fill="' + shineFill + '" stroke="none" transform="rotate(-40 46 26)" opacity=".75"/>';
     }
 
     const outlined = "<g " + OUTLINE + ' stroke-width="1.3">' + body.join("") + "</g>";
@@ -586,7 +627,7 @@
   }
 
   window.Art = {
-    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT,
+    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, HOOD_GEOMETRY,
     weatherIcon, reminderIcon, skyArt, sceneSvg, characterSvg,
   };
 })();

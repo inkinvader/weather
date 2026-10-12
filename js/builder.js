@@ -35,6 +35,7 @@
     genderPresentation: '<circle cx="8" cy="15" r="4"/><path d="M8 19v3M6 21h4"/><circle cx="17" cy="7" r="3.5"/><path d="M19.5 4.5L22 2M19 2h3v3"/>',
     skinTone: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     hair: '<path d="M5 15c0-6 3-10 7-10s7 4 7 10v1c-2-3-5-4-7-4s-5 1-7 4z"/>',
+    facialHair: '<path d="M5 8c0 9 3 13 7 13s7-4 7-13c-2 3-4 4-7 4s-5-1-7-4z"/><path d="M9 15q3 2 6 0"/>',
     eyes: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     nose: '<path d="M12 4v11"/><path d="M8 18a3 3 0 0 0 4 1 3 3 0 0 0 4-1"/>',
     mouth: '<path d="M3 12q4-4 9-1q5-3 9 1q-4 7-9 7t-9-7z"/>',

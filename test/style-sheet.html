@@ -62,6 +62,7 @@
   // 4. Hair, skin, personalities, face traits (head view)
   const head = (c) => fig(Object.assign({}, base, c), "preview", null, "head");
   out.push(section("Hair (8)", T.HAIR.map((h) => cell(head({ hair: h.id }), h.label, 84, 84))));
+  out.push(section("Facial hair (6), shown on auburn hair", T.traitByKey("facialHair").options.map((o) => cell(head({ hair: "curly-auburn", facialHair: o.id }), o.label, 84, 84))));
   out.push(section("Skin tones (6)", T.SKIN_TONES.map((s) => cell(head({ skinTone: s.id }), s.label, 84, 84))));
   out.push(section("Personality expressions (5)", T.traitByKey("personality").options.map((o) => cell(head({ personality: o.id }), o.label, 84, 84))));
   ["eyes", "nose", "mouth", "ear"].forEach((k) => out.push(section(T.traitByKey(k).label + " (" + T.traitByKey(k).options.length + ")", T.traitByKey(k).options.map((o) => cell(head({ [k]: o.id }), o.label, 84, 84)))));

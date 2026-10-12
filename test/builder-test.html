@@ -46,9 +46,9 @@
     check("trait '" + trait.key + "': all " + trait.options.length + " options draw differently", new Set(drawings).size === trait.options.length);
   });
   check("trait order is general -> specific, as specified",
-    T.TRAITS.map((t) => t.tab).join() === "Body,Gender,Skin,Hair,Eyes,Nose,Mouth,Ear,Personality");
-  check("option counts: body 3, gender 2, skin 6, hair 8, eyes 6, nose 5, mouth 6, ear 4, personality 5",
-    T.TRAITS.map((t) => t.options.length).join() === "3,2,6,8,6,5,6,4,5");
+    T.TRAITS.map((t) => t.tab).join() === "Body,Gender,Skin,Hair,Facial hair,Eyes,Nose,Mouth,Ear,Personality");
+  check("option counts: body 3, gender 2, skin 6, hair 8, facial hair 6, eyes 6, nose 5, mouth 6, ear 4, personality 5",
+    T.TRAITS.map((t) => t.options.length).join() === "3,2,6,8,6,6,5,6,4,5");
   check("body type specifies skinny / average / fat; personality specifies the five moods",
     T.traitByKey("bodyType").options.map((o) => o.id).join() === "skinny,average,fat" &&
     T.traitByKey("personality").options.map((o) => o.id).join() === "energetic,anxious,grumpy,chill,neutral");
@@ -82,8 +82,8 @@
 
     check("Character tab opens the builder, title 'Character 1', nav marks Character as current",
       Boolean($(root, ".builder")) && text(root, ".b-title") === "Character 1" && $(root, '.tab[aria-current="page"]').textContent.trim() === "Character");
-    check("9 tabs in order: Body, Gender, Skin, Hair, Eyes, Nose, Mouth, Ear, Personality",
-      $$(root, '[role="tab"]').map((t) => t.textContent.trim()).join() === "Body,Gender,Skin,Hair,Eyes,Nose,Mouth,Ear,Personality");
+    check("10 tabs in order: Body, Gender, Skin, Hair, Facial hair, Eyes, Nose, Mouth, Ear, Personality",
+      $$(root, '[role="tab"]').map((t) => t.textContent.trim()).join() === "Body,Gender,Skin,Hair,Facial hair,Eyes,Nose,Mouth,Ear,Personality");
     check("the tab strip scrolls sideways (more tabs than fit)", $(root, ".b-tabs").scrollWidth > $(root, ".b-tabs").clientWidth + 20,
       $(root, ".b-tabs").scrollWidth + " wide in " + $(root, ".b-tabs").clientWidth);
     check("tabs follow the ARIA tab pattern (one selected, panel labelled by it)",
@@ -112,7 +112,7 @@
         if (!wasOn && $(root, ".b-preview svg").outerHTML === before) { allChanged = false; notes.push("preview " + trait.key + "/" + option.id); }
       }
     }
-    check("all 40 options across the 9 tabs can be chosen, are saved immediately, and show as selected", allSaved, notes.join(" | "));
+    check("all 46 options across the 10 tabs can be chosen, are saved immediately, and show as selected", allSaved, notes.join(" | "));
     check("each tab frames the preview correctly, and every newly chosen option visibly changes the preview", allChanged, notes.join(" | "));
     check("focus stays on the option just tapped", document.activeElement && document.activeElement.dataset.option === "neutral");
 

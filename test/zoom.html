@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Figure zoom</title>
+  <style>
+    /* Review tool: one figure at large size. ?outfit=cold-1&category=cold&facial=beard&hair=curly-auburn&view=full|head&personality=energetic&mouth=grin */
+    body { margin: 0; background: #dcecfa; display: flex; justify-content: center; }
+    svg { width: 560px; height: 900px; }
+    svg.head { height: 560px; }
+  </style>
+</head>
+<body>
+<div id="out"></div>
+<script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
+<script src="../js/art.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const view = q.get("view") || "full";
+  const character = Object.assign(Traits.defaultCharacter("zoom"), {
+    hair: q.get("hair") || "short-brown",
+    facialHair: q.get("facial") || "clean",
+    personality: q.get("personality") || "neutral",
+    mouth: q.get("mouth") || "smile",
+    bodyType: q.get("body") || "average",
+    genderPresentation: q.get("gender") || "feminine",
+  });
+  const markup = Art.characterSvg({ character: character, category: q.get("category") || "cold", outfitId: q.get("outfit") || "cold-1", tag: "sporty", view: view, decorative: true });
+  document.getElementById("out").innerHTML = markup;
+  document.querySelector("svg").classList.add(view);
+  document.title = "LOADED";
+</script>
+</body>
+</html>

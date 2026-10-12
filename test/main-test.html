@@ -219,6 +219,47 @@
   const controlHair = Art.characterSvg({ character: Object.assign({}, T0, { hair: "spiky-blond" }), category: "mild", outfitId: "mild-2", tag: "covered", view: "full", decorative: true });
   check("control: without a hood the same hairstyle IS drawn", controlHair.includes("#e0b84a") && !controlHair.includes('fill-rule="evenodd"'));
 
+  // --- The hood is a pointed tent-like arch, not a helmet ---
+  const HG = Art.HOOD_GEOMETRY;
+  check("hood peaks above the head and flares over the shoulders (not a circle): apex above head top, wider at the shoulders than at head height",
+    HG.apexY < HG.headTopY - 6 && HG.bottomWidth - HG.widthAtHeadCentre >= 10, JSON.stringify(HG));
+  const strip = (m) => m.replace(/-\d+/g, "-N"); // gradient ids are unique per drawing, so compare with the numbers removed
+  const earsDrawn = (outfitId, ear) => Art.characterSvg({ character: Object.assign({}, T0, { ear: ear }), category: "cold", outfitId: outfitId, tag: "sporty", view: "full", decorative: true });
+  check("ears are hidden under a hood (so they cannot poke out past it) but drawn without one",
+    strip(earsDrawn("cold-1", "big")) === strip(earsDrawn("cold-1", "small")) && strip(earsDrawn("mild-2", "big")) !== strip(earsDrawn("mild-2", "small")));
+  // The hood's outer path must contain the whole head circle, or skin shows around the hood's edge.
+  const hoodOuter = (() => { const m = Art.characterSvg({ character: T0, category: "cold", outfitId: "cold-1", tag: "sporty", view: "full", decorative: true }); const d = m.match(/fill-rule="evenodd" d="(M[^"]*?Z)(M[^"]*Z)"/); return d ? d[1] : null; })();
+  check("the hood's outer shape is found in the drawing", hoodOuter !== null);
+  if (hoodOuter) {
+    const NS = "http://www.w3.org/2000/svg";
+    const host = document.createElementNS(NS, "svg");
+    const pathEl = document.createElementNS(NS, "path");
+    pathEl.setAttribute("d", hoodOuter);
+    host.appendChild(pathEl);
+    document.body.appendChild(host);
+    const cx = HG.headCentreY === undefined ? 42 : 60, cy = HG.headCentreY, r = HG.headRadius;
+    const outside = [];
+    for (let deg = 0; deg < 360; deg += 10) {
+      const x = 60 + r * Math.cos((deg * Math.PI) / 180), y = cy + r * Math.sin((deg * Math.PI) / 180);
+      if (y < 78 && !pathEl.isPointInFill(new DOMPoint(x, y))) outside.push(deg + "deg");
+    }
+    host.remove();
+    check("the hood fully encloses the head (no point of the head circle above the shoulders lies outside the hood)", outside.length === 0, outside.join(" "));
+  }
+  // Under a hood the beard is still visible (only hair is hidden)
+  const beardUnderHood = (hairId, facial) => Art.characterSvg({ character: Object.assign({}, T0, { hair: hairId, facialHair: facial }), category: "cold", outfitId: "cold-1", tag: "sporty", view: "full", decorative: true });
+  check("under a hood the beard still shows in the hair colour while the hair itself does not",
+    beardUnderHood("curly-auburn", "beard").includes("#8a3b1f") && !beardUnderHood("curly-auburn", "clean").includes("#8a3b1f"));
+
+  // --- Facial hair ---
+  const faceDrawings = Traits.traitByKey("facialHair").options.map((o) => Art.characterSvg({ character: Object.assign({}, T0, { facialHair: o.id }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true }));
+  check("facial hair: 6 options (clean shaven, stubble, mustache, goatee, beard, full beard & mustache), each drawn differently",
+    Traits.traitByKey("facialHair").options.map((o) => o.id).join() === "clean,stubble,mustache,goatee,beard,full" && new Set(faceDrawings).size === 6);
+  check("facial hair takes the hair colour: auburn hair gives an auburn beard, and a bald head gets a dark brown one",
+    Art.characterSvg({ character: Object.assign({}, T0, { hair: "bald", facialHair: "beard" }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true }).includes("#3a2a22") &&
+    Art.characterSvg({ character: Object.assign({}, T0, { hair: "bald", facialHair: "beard" }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true }).includes("#000000") === false);
+  check("stubble is kept inside the face (clipped to the head circle)", faceDrawings[1].includes("clip-path") && !faceDrawings[0].includes("stubble"));
+
   // --- Grin shows clenched, gritted teeth ---
   const grinHead = Art.characterSvg({ character: Object.assign({}, T0, { mouth: "grin" }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true });
   const smileHead = Art.characterSvg({ character: Object.assign({}, T0, { mouth: "smile" }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true });
