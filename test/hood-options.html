@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Hood shape options</title>
   <style>
-    /* Four different hood shapes on the same figure, large and phone-sized, to pick from. Not part of the app. */
+    /* Three hood styles on the same figure, large and phone-sized, to pick from. Not part of the app. */
     body { margin: 0; padding: 14px; font: 14px system-ui, sans-serif; background: #eef2f6; color: #12212f; }
     h1 { margin: 0 0 4px; font-size: 18px; }
     p { margin: 2px 0 10px; max-width: 880px; }
@@ -18,20 +18,19 @@
 </head>
 <body>
 <h1>Hood shape options</h1>
-<p>The same outfit (hoodie under a jacket) with four different hood shapes. Tell me the letter you want, or what is still wrong with it
+<p>The same outfit (hoodie under a jacket) with three different hoods. Tell me the letter you want, or what is still wrong with it
    (for example: top too pointed, too wide at the shoulders, face opening too window-like, hood too thick or too thin around the face).</p>
 <div class="row big" id="big"></div>
-<p>The same four at the size they appear in the app:</p>
+<p>The same three at the size they appear in the app:</p>
 <div class="row small" id="small"></div>
 <script src="../js/variation.js"></script>
 <script src="../js/traits.js"></script>
 <script src="../js/art.js"></script>
 <script>
   const options = [
-    ["A", "cone", "Current: tall and pointed, flares to the shoulders"],
-    ["B", "dome", "Wide, low, rounded dome; thick fabric at the sides"],
-    ["C", "arch", "Widest at the ears, narrowing toward the neck; soft rounded peak"],
-    ["D", "slouch", "Slouchy: the peak flops to one side, uneven sides"],
+    ["A", "classic", "Classic: a thin cotton hood, rounded top, open under the chin, ends joined at a collar at the neck"],
+    ["B", "puffy", "Puffy: thicker and padded, with quilting"],
+    ["C", "slouch", "Slouchy: thin, with the top flopped to one side"],
   ];
   const character = Object.assign(Traits.defaultCharacter("hoodopts"), { hair: "curly-auburn", facialHair: "full", mouth: "smirk", personality: "neutral", genderPresentation: "masculine" });
   const draw = (style) => Art.characterSvg({ character: character, category: "cold", outfitId: "cold-1", tag: "sporty", hoodStyle: style, view: "full", decorative: true });

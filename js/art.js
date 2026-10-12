@@ -274,14 +274,14 @@
   // One entry per outfit id, written to match the outfit's name in variation.js (a test keeps the
   // drawing and the written name in sync). Fields:
   //   sleeves: long | short | none      pants: long | short      top, bottom, accent: colours
-  //   coat: wool | puffer | parka (longer outer layer)   zip   hood: up (always up, never down), hoodColor (defaults to top)   drawstrings   scarf   beanie   cap
+  //   coat: wool | puffer | parka (longer outer layer)   zip   hood: up (always up, never down), hoodColor (defaults to top), hoodStyle (classic | puffy | slouch)   drawstrings   scarf   beanie   cap
   //   sunHat   glasses   socks   cuffs   stripe   pockets   crop   rib
   const OUTFIT_LOOK = {
-    "freezing-1": { sleeves: "long", pants: "long", top: "#4b6fa8", bottom: "#2f3b52", accent: "#c9553d", coat: "puffer", hood: "up", scarf: true, cuffs: true },
+    "freezing-1": { sleeves: "long", pants: "long", top: "#4b6fa8", bottom: "#2f3b52", accent: "#c9553d", coat: "puffer", hood: "up", hoodStyle: "puffy", scarf: true, cuffs: true },
     "freezing-2": { sleeves: "long", pants: "long", top: "#2d3139", bottom: "#23262e", accent: "#3b3f48", coat: "wool", beanie: true },
     "freezing-3": { sleeves: "long", pants: "long", top: "#6b8e6a", bottom: "#4a4f58", accent: "#f2efe6", coat: "parka", zip: true, socks: true },
-    "cold-1": { sleeves: "long", pants: "long", top: "#d9573b", bottom: "#3a3f4b", accent: "#9aa1a9", zip: true, hood: "up", hoodColor: "#f0e2b8", drawstrings: true, stripe: true, cuffs: true },
-    "cold-2": { sleeves: "long", pants: "long", top: "#7a5c3e", bottom: "#3b4a6b", accent: "#c9553d", coat: "parka", zip: true, hood: "up", hoodColor: "#4a7f86", drawstrings: true, scarf: true },
+    "cold-1": { sleeves: "long", pants: "long", top: "#d9573b", bottom: "#3a3f4b", accent: "#9aa1a9", zip: true, hood: "up", hoodColor: "#f0e2b8", hoodStyle: "classic", drawstrings: true, stripe: true, cuffs: true },
+    "cold-2": { sleeves: "long", pants: "long", top: "#7a5c3e", bottom: "#3b4a6b", accent: "#c9553d", coat: "parka", zip: true, hood: "up", hoodColor: "#4a7f86", hoodStyle: "slouch", drawstrings: true, scarf: true },
     "cold-3": { sleeves: "long", pants: "long", top: "#2d3139", bottom: "#8a8f98", accent: "#454b55", coat: "wool" },
     "cool-1": { sleeves: "long", pants: "long", top: "#3fa3a0", bottom: "#2b2f38", accent: "#ffffff", zip: true, stripe: true, cuffs: true },
     "cool-2": { sleeves: "long", pants: "long", top: "#8a8f98", bottom: "#23262e", accent: "#6f757e", rib: true },
@@ -421,31 +421,44 @@
   // Facial hair, in head space (centre 60,48; the face is a circle of radius 24; the chin is at y=72).
   // It takes the character's hair colour (a bald character gets dark brown). `behind` sits under the
   // nose, eyes and mouth; the mustache is drawn after the beard and before the nose.
+  // The shapes are irregular, not smooth arcs: the beard's cheek line is diagonal from the sideburn to the
+  // mouth corner, its lower edge is a row of uneven tufts, and a few strand lines run through it.
+  const BEARD_LOWER = "C87 60 85 72 79 78C76 82 73 82 70 84C67 86 64 83 60 85C56 83 53 86 50 84C47 82 44 82 41 78C35 72 33 60 35 46Z";
+  // full beard: covers the whole lower face, up to the mustache line
+  const FULL_BEARD = "M35 46C35 51 38 56 43 58C47 60 53 59 60 59C67 59 73 60 77 58C82 56 85 51 85 46" + BEARD_LOWER;
+  // beard without a mustache: sideburns, jaw and chin, with the upper lip and mouth left free
+  const JAW_BEARD = "M35 46C35 51 38 56 43 59C46 62 49 66 54 67C58 68 62 68 66 67C71 66 74 62 77 59C82 56 85 51 85 46" + BEARD_LOWER;
+  const MUSTACHE = "M47 60C48 55 54 54 58 57C59 58 61 58 62 57C66 54 72 55 73 60C71 63 66 61 62 60C61 61 59 61 58 60C54 61 49 63 47 60Z";
+  // goatee: a RING of hair around the mouth (mustache above, chin patch below, joined at the corners).
+  // One path, outer ring then the hole for the mouth, filled with the even-odd rule.
+  const GOATEE_RING = "M46 62C46 56 52 55 60 57C68 55 74 56 74 62C74 70 70 76 60 76C50 76 46 70 46 62Z";
+  const GOATEE_HOLE = "M52.5 62C52.5 59.5 56 59 60 60C64 59 67.5 59.5 67.5 62C67.5 65.5 64 67 60 67C56 67 52.5 65.5 52.5 62Z";
+  const GOATEE = GOATEE_RING + GOATEE_HOLE;
+  const FACIAL_SHAPES = { GOATEE, FULL_BEARD, JAW_BEARD, MUSTACHE };
+
   function facialHairSvg(id, hairColor, V, defs) {
     if (id === "clean") return { behind: "", mustache: "" };
     const color = hairColor === "#000000" ? "#3a2a22" : hairColor;
-    const fill = V(color, "sphere");
-    const BEARD = "M36 55C35 67 44 80 60 80C76 80 85 67 84 55C80 60 72 62 60 62C48 62 40 60 36 55Z";
-    const FULL = "M35 53C32 70 44 85 60 85C76 85 88 70 85 53C81 58 72 60 60 60C48 60 39 58 35 53Z";
-    const GOATEE = "M50 63C49 73 54 80 60 80C66 80 71 73 70 63C66 67 54 67 50 63Z";
-    const MUSTACHE = "M48 59C50 54 56 54 60 57C64 54 70 54 72 59C68 62 63 60 60 59C57 60 52 62 48 59Z";
-    const shape = (d) => '<path d="' + d + '" fill="' + fill + '" stroke="#2a1f33" stroke-opacity=".4" stroke-width="1" stroke-linejoin="round"/>';
+    const fill = V(color, "vert");
+    const shape = (d, extra) => '<path d="' + d + '"' + (extra || "") + ' fill="' + fill + '" stroke="#2a1f33" stroke-opacity=".4" stroke-width="1" stroke-linejoin="round"/>';
+    const strands = (d) => '<path d="' + d + '" stroke="' + shade(color, -0.4) + '" stroke-opacity=".5" stroke-width=".9" fill="none" stroke-linecap="round"/>';
+    const BEARD_STRANDS = strands("M40 62C42 70 43 76 44 80M48 66C49 74 49 80 50 83M60 68V83M72 66C71 74 71 80 70 83M80 62C78 70 77 76 76 80");
+    const MUSTACHE_STRANDS = strands("M51 57C53 58 55 59 58 60M69 57C67 58 65 59 62 60");
     if (id === "stubble") {
       // a faint shadow of hair over the lower face, kept inside the face circle, with a few short bristles
       const clip = nextId("stubble");
       defs.push('<clipPath id="' + clip + '"><circle cx="60" cy="48" r="24"/></clipPath>');
       const dots = [[46, 66], [52, 70], [58, 72], [64, 72], [70, 70], [74, 66], [42, 60], [78, 60], [50, 64], [56, 67], [62, 67], [68, 64], [54, 60.5], [66, 60.5], [45, 55], [75, 55], [60, 64.5], [48, 69]];
       return {
-        behind: '<g clip-path="url(#' + clip + ')" stroke="none"><path d="' + BEARD + '" fill="' + color + '" opacity=".3"/>' + dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r=".9" fill="' + color + '" opacity=".6"/>').join("") + "</g>",
+        behind: '<g clip-path="url(#' + clip + ')" stroke="none"><path d="' + FULL_BEARD + '" fill="' + color + '" opacity=".3"/>' + dots.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r=".9" fill="' + color + '" opacity=".6"/>').join("") + "</g>",
         mustache: "",
       };
     }
     return {
-      clean: { behind: "", mustache: "" },
-      mustache: { behind: "", mustache: shape(MUSTACHE) },
-      goatee: { behind: shape(GOATEE), mustache: "" },
-      beard: { behind: shape(BEARD), mustache: "" },
-      full: { behind: shape(FULL), mustache: shape(MUSTACHE) },
+      mustache: { behind: "", mustache: shape(MUSTACHE) + MUSTACHE_STRANDS },
+      goatee: { behind: shape(GOATEE, ' fill-rule="evenodd"') + strands("M55 69C55 72 56 74 57 75M65 69C65 72 64 74 63 75"), mustache: "" },
+      beard: { behind: shape(JAW_BEARD) + BEARD_STRANDS, mustache: "" },
+      full: { behind: shape(FULL_BEARD) + BEARD_STRANDS, mustache: shape(MUSTACHE) + MUSTACHE_STRANDS },
     }[id];
   }
 
@@ -468,36 +481,33 @@
     }[personality];
   }
 
-  // Hood silhouette (figure space). Outer: an arch that peaks at y=3, well above the head (whose top is
-  // at y=13), fully encloses the head (the head is 57.6 wide), and flares from about 66 wide at head height to 80
-  // wide at the shoulders. Opening: the face.
-  // Alternative hood shapes, for the Developer to choose between (see test/hood-options.html). `cone` is the
-  // current one. Each has an outer silhouette and an opening for the face.
+  // Hoods (figure space). A hoodie hood is NOT a closed shape with a hole in it. It is a thin band that
+  // goes over the top of the head and down both sides of the face (a horseshoe, rounded on top, never
+  // pointed). It is open under the chin; its two ends run down to a collar at the base of the neck, where
+  // it joins the clothes. Three variants, so hoods are not all the same:
+  //   classic: thin cotton hood      puffy: a thicker padded hood with quilting      slouch: thin, with the top flopped to one side
+  // `band` is the cloth (one closed loop: the outside edge, then back along the inside edge). `inside` is the
+  // area the face and neck show through, used for the soft shadow the hood casts on the forehead.
   const HOODS = {
-    cone: {
-      outer: "M20 90C21 62 26 40 32 28C38 12 52 6 60 3C68 6 82 12 88 28C94 40 99 62 100 90Q60 99 20 90Z",
-      opening: "M34.5 46C34.5 32 50 19 60 18C70 19 85.5 32 85.5 46C85.5 62 74 74 60 74C46 74 34.5 62 34.5 46Z",
+    classic: {
+      band: "M34 84C26 74 20 56 24 40C27 20 43 8 60 7C77 8 93 20 96 40C100 56 94 74 86 84L74 80C82 70 87 60 87 46C87 33 76 22 60 21C44 22 33 33 33 46C33 60 38 70 46 80Z",
+      inside: "M46 80C38 70 33 60 33 46C33 33 44 22 60 21C76 22 87 33 87 46C87 60 82 70 74 80Z",
+      details: (c) => '<path d="M28 46C29 58 32 70 36 80M92 46C91 58 88 70 84 80M44 13C50 10 56 9 60 9" stroke="' + c + '" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".6"/>',
     },
-    // a wide, low, rounded dome, much thicker at the sides, with a nearly round face opening
-    dome: {
-      outer: "M16 92C12 68 14 44 24 28C32 14 46 6 60 5C74 6 88 14 96 28C106 44 108 68 104 92Q60 101 16 92Z",
-      opening: "M33 46C33 32 46 21 60 21C74 21 87 32 87 46C87 62 75 75 60 75C45 75 33 62 33 46Z",
+    puffy: {
+      band: "M32 86C22 76 16 54 20 38C24 18 42 4 60 4C78 4 96 18 100 38C104 54 98 76 88 86L76 80C84 70 88 60 88 47C88 32 76 20 60 20C44 20 32 32 32 47C32 60 36 70 44 80Z",
+      inside: "M44 80C36 70 32 60 32 47C32 32 44 20 60 20C76 20 88 32 88 47C88 60 84 70 76 80Z",
+      details: (c) => '<path d="M19 52L32 54M19 42L32 42M22 30L34 33M30 16L40 24M44 7L48 20M60 4V20M101 52L88 54M101 42L88 42M98 30L86 33M90 16L80 24M76 7L72 20" stroke="' + c + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".6"/>',
     },
-    // widest around the ears and narrowing toward the neck, with a soft rounded peak; thin fabric around a big face
-    arch: {
-      outer: "M33 94C25 78 24 54 28 38C33 21 49 10 60 5C71 10 87 21 92 38C96 54 95 78 87 94Q60 101 33 94Z",
-      opening: "M32 47C32 33 45 22 60 22C75 22 88 33 88 47C88 62 76 75 60 75C44 75 32 62 32 47Z",
-    },
-    // a slouchy hood: the peak flops to one side, and the sides are uneven; same thin fabric and big face
     slouch: {
-      outer: "M31 94C23 78 23 54 28 38C33 22 46 14 56 10C62 3 71 5 77 13C87 22 93 32 94 42C97 56 95 78 88 94Q60 100 31 94Z",
-      opening: "M32 47C32 33 45 22 60 22C75 22 88 33 88 47C88 62 76 75 60 75C44 75 32 62 32 47Z",
+      band: "M34 84C26 74 20 56 24 40C27 22 42 12 53 9C58 4 67 3 73 8C85 12 94 24 96 40C100 56 94 74 86 84L74 80C82 70 87 60 87 46C87 34 77 23 62 22C45 22 33 33 33 46C33 60 38 70 46 80Z",
+      inside: "M46 80C38 70 33 60 33 46C33 34 45 22 62 22C77 23 87 34 87 46C87 60 82 70 74 80Z",
+      details: (c) => '<path d="M62 6C66 10 72 14 78 16M28 46C29 58 32 70 36 80M92 46C91 58 88 70 84 80" stroke="' + c + '" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".6"/>',
     },
   };
-  const DEFAULT_HOOD = "cone";
-  const HOOD_OUTER = HOODS[DEFAULT_HOOD].outer;
-  const HOOD_OPENING = HOODS[DEFAULT_HOOD].opening;
-  const HOOD_GEOMETRY = { apexY: 3, headTopY: 13, widthAtHeadCentre: 66, bottomWidth: 80, headRadius: 28.8, headCentreY: 42 };
+  const DEFAULT_HOOD = "classic";
+  // The collar the hood's two ends run down into, at the base of the neck (a curve under the neck).
+  const HOOD_COLLAR = "M46 79Q60 88 74 79";
 
   // The figure's drawing area: 120 wide, 200 tall. The head is large (Mii-style proportions).
   // (it starts 14 above the head's old top edge, so tall hair such as spikes is never cut off)
@@ -630,7 +640,13 @@
     if (!hoodUp) body.push(scarfSvg);
     // hoodie drawstrings hang from under the hood onto the chest
     if (outfit.drawstrings) {
-      body.push('<path d="M49 90q-3 11 -1 22M71 90q3 11 1 22" stroke="#f4f1ea" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="48" cy="113" r="2.3" fill="#f4f1ea"/><circle cx="72" cy="113" r="2.3" fill="#f4f1ea"/>');
+      body.push('<path d="M49 85q-3 11 -1 22M71 85q3 11 1 22" stroke="#f4f1ea" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="48" cy="108" r="2.3" fill="#f4f1ea"/><circle cx="72" cy="108" r="2.3" fill="#f4f1ea"/>');
+    }
+    // hood collar: the curve the hood's two ends run down into, at the base of the neck
+    if (hoodUp) {
+      const collarFill = outfit.hoodColor || outfit.top;
+      // a solid roll: dark outline, flat cloth colour, a darker underside and a lighter top edge
+      body.push('<path data-hood="collar" d="' + HOOD_COLLAR + '" fill="none" stroke="#2a1f33" stroke-opacity=".6" stroke-width="11" stroke-linecap="round"/><path d="' + HOOD_COLLAR + '" fill="none" stroke="' + collarFill + '" stroke-width="9" stroke-linecap="round"/><path d="M47 81Q60 91 73 81" fill="none" stroke="' + shade(collarFill, -0.25) + '" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M48 77Q60 85 72 77" fill="none" stroke="' + shade(collarFill, 0.25) + '" stroke-width="2" stroke-linecap="round" opacity=".8"/>');
     }
     // a short neck; the head's shadow falls only on the neck and chest, clipped to them
     body.push('<rect x="53" y="62" width="14" height="18" rx="5" fill="' + V(skin, "cyl") + '"/>');
@@ -653,24 +669,21 @@
     if (outfit.cap) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M34 40a26 22 0 0 1 52 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="58" y="36" width="40" height="7" rx="3.5" fill="' + V(shade(outfit.accent, -0.15), "vert") + '"/></g>' + gleam(50, 28, 8, 3.5, -20, 0.7));
     if (outfit.sunHat) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><ellipse cx="60" cy="31" rx="40" ry="7" fill="' + V(outfit.accent, "vert") + '"/><path d="M40 31a20 16 0 0 1 40 0z" fill="' + V(shade(outfit.accent, 0.15), "sphere") + '"/><rect x="40" y="26" width="40" height="5" fill="#c9553d"/></g>');
     if (outfit.beanie) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M35 38a25 24 0 0 1 50 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="34" y="35" width="52" height="7" rx="3" fill="' + V(shade(outfit.accent, -0.2), "vert") + '"/><circle cx="60" cy="14" r="5" fill="' + V(shade(outfit.accent, 0.2), "sphere") + '"/></g>' + gleam(48, 26, 8, 4, -20, 0.6));
-    // Hood up, drawn like a real hoodie hood: a pointed, tent-like arch that peaks well above the head,
-    // flares out over the shoulders, and hugs the face with only a thin band at the cheeks (thick fabric
-    // sits above the brows). It has a centre seam, fold lines, a highlight, and a soft shadow on the face
-    // where it frames it (clipped to the opening, so it stays on the model).
+    // Hood up: the thin band over the head and down both sides of the face (see HOODS). It is drawn over
+    // the head, so it overlaps the top of the head and the cheeks, and it leaves the chin and neck open.
+    // It casts a soft shadow on the forehead, clipped to the area the face shows through.
     let hoodFrame = "";
     if (hoodUp) {
       const hoodFill = outfit.hoodColor || outfit.top;
-      const shape = HOODS[look.hoodStyle] || HOODS[DEFAULT_HOOD];
-      const openClip = nextId("hoodopen");
-      defs.push('<clipPath id="' + openClip + '"><path d="' + shape.opening + '"/></clipPath>');
+      const style = HOODS[look.hoodStyle || outfit.hoodStyle] || HOODS[DEFAULT_HOOD];
+      const insideClip = nextId("hoodinside");
+      defs.push('<clipPath id="' + insideClip + '"><path d="' + style.inside + '"/></clipPath>');
       hoodFrame =
-        '<path fill-rule="evenodd" d="' + shape.outer + shape.opening + '" fill="' + V(hoodFill, "cyl") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>' +
-        '<g clip-path="url(#' + openClip + ')" stroke="none"><rect data-shadow="body" x="28" y="14" width="64" height="66" fill="' + edgeFill + '"/></g>' +
-        // a soft darker lining where the fabric turns in around the face, not a hard light outline
-        '<path d="' + shape.opening + '" fill="none" stroke="' + shade(hoodFill, -0.4) + '" stroke-opacity=".4" stroke-width="3" stroke-linejoin="round"/>' +
-        '<path d="M60 5V17" stroke="' + shade(hoodFill, -0.3) + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
-        '<path d="M44 16C34 34 29 60 27 88M76 16C86 34 91 60 93 88" stroke="' + shade(hoodFill, -0.25) + '" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".7"/>' +
-        '<ellipse cx="44" cy="22" rx="8" ry="4" fill="' + shineFill + '" stroke="none" transform="rotate(-40 46 26)" opacity=".75"/>';
+        '<g clip-path="url(#' + insideClip + ')" stroke="none"><rect data-shadow="body" x="28" y="14" width="64" height="30" fill="' + fadeFill + '"/></g>' +
+        '<path data-hood="band" d="' + style.band + '" fill="' + V(hoodFill, "cyl") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>' +
+        '<path d="' + style.inside + '" fill="none" stroke="' + shade(hoodFill, -0.4) + '" stroke-opacity=".35" stroke-width="2" stroke-linejoin="round"/>' +
+        style.details(shade(hoodFill, -0.3)) +
+        '<ellipse cx="42" cy="22" rx="8" ry="4" fill="' + shineFill + '" stroke="none" transform="rotate(-40 42 22)" opacity=".7"/>';
     }
 
     const outlined = "<g " + OUTLINE + ' stroke-width="1.3">' + body.join("") + "</g>";
@@ -691,7 +704,7 @@
   }
 
   window.Art = {
-    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOOD_GEOMETRY, HAIRLINE, HOODS,
+    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOODS, HOOD_COLLAR, FACIAL_SHAPES, HAIRLINE,
     weatherIcon, reminderIcon, skyArt, sceneSvg, characterSvg,
   };
 })();

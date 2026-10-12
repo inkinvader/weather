@@ -11,7 +11,7 @@
     #cases { display: flex; gap: 16px; align-items: flex-start; padding: 8px; }
     .case { width: 390px; height: 700px; position: relative; background: #fff; flex: none; }
     .label { color: #fff; font: 12px monospace; margin: 0 0 2px; }
-    pre#out { margin: 0; padding: 8px; background: #fff; font-size: 13px; }
+    pre#out { margin: 0; padding: 8px; background: #fff; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
     /* Hidden views must stay laid out (visibility, not display:none) or every measurement reads 0. */
     body[data-view="results"] #cases { visibility: hidden; position: absolute; top: 0; }
     body[data-view="cases"] pre#out { display: none; }
@@ -213,39 +213,42 @@
       const strip = (m) => m.replace(/-\d+/g, "-N");
       if (strip(drawWith(v, h.id)) !== strip(bald)) leaks.push(v.id + "/" + h.id);
     });
-    if (!bald.includes('fill-rule="evenodd"')) leaks.push(v.id + " has no hood frame");
+    if (!bald.includes('data-hood="band"')) leaks.push(v.id + " has no hood");
   });
   check("under a hood the drawing is identical for all 7 hairstyles and bald (no fringe, bun, spikes or locks poke out), for each hoodie", leaks.length === 0, leaks.join(", "));
   const controlHair = Art.characterSvg({ character: Object.assign({}, T0, { hair: "spiky-blond" }), category: "mild", outfitId: "mild-2", tag: "covered", view: "full", decorative: true });
-  check("control: without a hood the same hairstyle IS drawn", controlHair.includes("#e0b84a") && !controlHair.includes('fill-rule="evenodd"'));
+  check("control: without a hood the same hairstyle IS drawn", controlHair.includes("#e0b84a") && !controlHair.includes('data-hood="band"'));
 
-  // --- The hood is a pointed tent-like arch, not a helmet ---
-  const HG = Art.HOOD_GEOMETRY;
-  check("hood peaks above the head and flares over the shoulders (not a circle): apex above head top, wider at the shoulders than at head height",
-    HG.apexY < HG.headTopY - 6 && HG.bottomWidth - HG.widthAtHeadCentre >= 10, JSON.stringify(HG));
-  const strip = (m) => m.replace(/-\d+/g, "-N"); // gradient ids are unique per drawing, so compare with the numbers removed
-  const earsDrawn = (outfitId, ear) => Art.characterSvg({ character: Object.assign({}, T0, { ear: ear }), category: "cold", outfitId: outfitId, tag: "sporty", view: "full", decorative: true });
-  check("ears are hidden under a hood (so they cannot poke out past it) but drawn without one",
-    strip(earsDrawn("cold-1", "big")) === strip(earsDrawn("cold-1", "small")) && strip(earsDrawn("mild-2", "big")) !== strip(earsDrawn("mild-2", "small")));
-  // The hood's outer path must contain the whole head circle, or skin shows around the hood's edge.
-  const hoodOuter = (() => { const m = Art.characterSvg({ character: T0, category: "cold", outfitId: "cold-1", tag: "sporty", view: "full", decorative: true }); const d = m.match(/fill-rule="evenodd" d="(M[^"]*?Z)(M[^"]*Z)"/); return d ? d[1] : null; })();
-  check("the hood's outer shape is found in the drawing", hoodOuter !== null);
-  if (hoodOuter) {
-    const NS = "http://www.w3.org/2000/svg";
-    const host = document.createElementNS(NS, "svg");
-    const pathEl = document.createElementNS(NS, "path");
-    pathEl.setAttribute("d", hoodOuter);
-    host.appendChild(pathEl);
-    document.body.appendChild(host);
-    const cx = HG.headCentreY === undefined ? 42 : 60, cy = HG.headCentreY, r = HG.headRadius;
-    const outside = [];
-    for (let deg = 0; deg < 360; deg += 10) {
-      const x = 60 + r * Math.cos((deg * Math.PI) / 180), y = cy + r * Math.sin((deg * Math.PI) / 180);
-      if (y < 78 && !pathEl.isPointInFill(new DOMPoint(x, y))) outside.push(deg + "deg");
+  // --- The hood is a thin, rounded band over the head, open under the chin, joined at the neck ---
+  const NS = "http://www.w3.org/2000/svg";
+  const svgHost = document.createElementNS(NS, "svg");
+  document.body.appendChild(svgHost);
+  const inFill = (d, x, y, rule) => { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); if (rule) p.setAttribute("fill-rule", rule); svgHost.appendChild(p); const r = p.isPointInFill(new DOMPoint(x, y)); p.remove(); return r; };
+  const hoodProblems = [];
+  Object.entries(Art.HOODS).forEach(([name, h]) => {
+    // rounded top, not pointed: points a little to each side of the centre, just under the top, are cloth
+    [[48, 13], [72, 13]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": top is pointed (" + x + "," + y + " is not cloth)"); });
+    // open under the chin: neither the chin nor the neck is covered
+    [[60, 70], [60, 78]].forEach(([x, y]) => { if (inFill(h.band, x, y)) hoodProblems.push(name + ": the hood closes under the chin (" + x + "," + y + ")"); });
+    // joined at the base of the neck: both ends of the band reach the collar
+    [[40, 80], [80, 80]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": an end of the hood does not reach the base of the neck (" + x + "," + y + ")"); });
+    // thin: measure the band across at ear level (y=44) and over the top (x=60)
+    let side = 0; for (let x = 8; x < 60; x += 0.5) if (inFill(h.band, x, 44)) side += 0.5;
+    let top = 0; for (let y = 0; y < 60; y += 0.5) if (inFill(h.band, 60, y)) top += 0.5;
+    if (side > 14) hoodProblems.push(name + ": too thick at the sides (" + side + ")");
+    if (top > 18) hoodProblems.push(name + ": too thick over the top (" + top + ")");
+    // covers the top of the head: the head circle's top arc is under the band (not bare skin sticking out)
+    for (let deg = 215; deg <= 325; deg += 10) {
+      const x = 60 + 28.8 * Math.cos((deg * Math.PI) / 180), y = 42 + 28.8 * Math.sin((deg * Math.PI) / 180);
+      if (!inFill(h.band, x, y) && !inFill(h.inside, x, y)) hoodProblems.push(name + ": the head pokes out of the hood at " + deg + "deg");
     }
-    host.remove();
-    check("the hood fully encloses the head (no point of the head circle above the shoulders lies outside the hood)", outside.length === 0, outside.join(" "));
-  }
+  });
+  check("every hood style is a thin rounded band: rounded top, open under the chin, both ends reach the neck, thin at the sides and top, and it covers the top of the head", hoodProblems.length === 0, hoodProblems.slice(0, 4).join(" | "));
+  svgHost.remove();
+  check("the three hoods differ from each other (classic, puffy, slouch), and the hooded outfits use all three",
+    new Set(Object.values(Art.HOODS).map((h) => h.band)).size === 3 && new Set(["freezing-1", "cold-1", "cold-2"].map((id) => Art.OUTFIT_LOOK[id].hoodStyle)).size === 3);
+  check("a collar is drawn at the base of the neck for each hooded outfit",
+    ["freezing-1", "cold-1", "cold-2"].every((id) => Art.characterSvg({ character: T0, category: "cold", outfitId: id, tag: "sporty", view: "full", decorative: true }).includes('data-hood="collar"')));
   // Under a hood the beard is still visible (only hair is hidden)
   const beardUnderHood = (hairId, facial) => Art.characterSvg({ character: Object.assign({}, T0, { hair: hairId, facialHair: facial }), category: "cold", outfitId: "cold-1", tag: "sporty", view: "full", decorative: true });
   check("under a hood the beard still shows in the hair colour while the hair itself does not",
@@ -281,6 +284,19 @@
   check("spiky hair is a dome with spikes: the dome plus seven spikes are in the drawing", (drawHair("spiky-blond").match(/L/g) || []).length >= 14);
 
   // --- Facial hair ---
+  const FS = Art.FACIAL_SHAPES;
+  const NS2 = "http://www.w3.org/2000/svg";
+  const host2 = document.createElementNS(NS2, "svg");
+  document.body.appendChild(host2);
+  const inShape = (d, x, y, rule) => { const p = document.createElementNS(NS2, "path"); p.setAttribute("d", d); if (rule) p.setAttribute("fill-rule", rule); host2.appendChild(p); const r = p.isPointInFill(new DOMPoint(x, y)); p.remove(); return r; };
+  check("a goatee is a RING around the mouth: hair above (mustache), below (chin), left and right of it, and none on the mouth itself",
+    inShape(FS.GOATEE, 60, 57, "evenodd") && inShape(FS.GOATEE, 60, 73, "evenodd") && inShape(FS.GOATEE, 46, 62, "evenodd") && inShape(FS.GOATEE, 74, 62, "evenodd") && !inShape(FS.GOATEE, 60, 63, "evenodd"));
+  check("a plain beard leaves the upper lip and mouth free; a full beard covers the area up to the mustache line",
+    !inShape(FS.JAW_BEARD, 60, 62) && inShape(FS.JAW_BEARD, 60, 75) && inShape(FS.FULL_BEARD, 60, 62));
+  check("the beard's edges are natural, not one smooth curve: 10+ curve segments, six of them an uneven row of tufts along the bottom",
+    (FS.FULL_BEARD.match(/C/g) || []).length >= 10);
+  host2.remove();
+
   const faceDrawings = Traits.traitByKey("facialHair").options.map((o) => Art.characterSvg({ character: Object.assign({}, T0, { facialHair: o.id }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true }));
   check("facial hair: 6 options (clean shaven, stubble, mustache, goatee, beard, full beard & mustache), each drawn differently",
     Traits.traitByKey("facialHair").options.map((o) => o.id).join() === "clean,stubble,mustache,goatee,beard,full" && new Set(faceDrawings).size === 6);
