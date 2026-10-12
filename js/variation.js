@@ -59,7 +59,7 @@
     extreme_heat: [
       { id: "extreme_heat-1", tag: "sporty", name: "Moisture-wicking tank and shorts" },
       { id: "extreme_heat-2", tag: "dark", name: "Dark tank and shorts" },
-      { id: "extreme_heat-3", tag: "loose", name: "Loose linen top and shorts" },
+      { id: "extreme_heat-3", tag: "loose", name: "Oversized crop top and breathable shorts" },
     ],
   };
 
