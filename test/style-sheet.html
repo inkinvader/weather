@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Art style sheet</title>
+  <style>
+    /* Review sheet for the vector art style (option D). Not part of the app. */
+    body { margin: 0; padding: 12px; font: 13px system-ui, sans-serif; background: #eef2f6; color: #12212f; }
+    h2 { margin: 18px 0 6px; font-size: 15px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .cell { text-align: center; }
+    .cell svg { display: block; background: #dcecfa; border-radius: 8px; }
+    .cell small { display: block; max-width: 140px; margin: 2px auto 0; font-size: 11px; line-height: 1.15; }
+    .scene-cell { position: relative; width: 200px; height: 300px; overflow: hidden; border-radius: 10px; }
+    .scene-cell .scene-art { width: 100%; height: 100%; display: block; }
+    .scene-cell .sky { position: absolute; top: 8px; left: 6px; }
+    .scene-cell .sky svg { width: 110px; height: auto; background: none; }
+    .scene-cell .fig { position: absolute; left: 50px; bottom: 6px; width: 100px; height: 168px; }
+    .scene-cell .fig svg { width: 100%; height: 100%; background: none; }
+  </style>
+</head>
+<body>
+<h1 style="margin:0 0 4px;font-size:18px">Art style sheet (original vector art drawn in code)</h1>
+<div id="sheet"></div>
+<script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
+<script src="../js/art.js"></script>
+<script>
+  const T = Traits;
+  const base = T.defaultCharacter("sheet");
+  const fig = (character, outfitId, tag, view) => Art.characterSvg({ character: character, category: "mild", outfitId: outfitId, tag: tag, view: view, decorative: true });
+  const section = (title, cells) => '<h2>' + title + '</h2><div class="row">' + cells.join("") + "</div>";
+  const cell = (svg, label, w, h) => '<div class="cell"><div style="width:' + w + 'px;height:' + h + 'px">' + svg + "</div><small>" + label + "</small></div>";
+
+  const out = [];
+
+  // 1. Scenes for each weather type, with a figure standing in them
+  const icons = ["clear", "partly_cloudy", "cloudy", "rain", "thunderstorm", "snow", "windy_fog"];
+  out.push(section("Scene and sky art by weather", icons.map((icon) =>
+    '<div class="cell"><div class="scene-cell">' + Art.sceneSvg(icon) + '<div class="sky">' + Art.skyArt(icon) + '</div><div class="fig">' + fig(Object.assign({}, base, { personality: "chill" }), "mild-2", "covered", "full") + "</div></div><small>" + Art.WEATHER_ICONS[icon].label + "</small></div>")));
+
+  // 2. Body types x gender presentations
+  const bodies = [];
+  ["skinny", "average", "fat"].forEach((b) => ["feminine", "masculine"].forEach((g) => bodies.push(cell(fig(Object.assign({}, base, { bodyType: b, genderPresentation: g }), "preview", null, "full"), b + " / " + g, 110, 183))));
+  out.push(section("Body type x gender presentation", bodies));
+
+  // 3. All 21 outfits
+  const outfits = [];
+  Object.entries(Variation.OUTFIT_VARIATIONS).forEach(([category, list]) => list.forEach((v) =>
+    outfits.push(cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic" }), category: category, outfitId: v.id, tag: v.tag, view: "full", decorative: true }), category + ": " + v.name, 110, 183))));
+  out.push(section("All 21 outfits", outfits));
+
+  // 4. Hair, skin, personalities, face traits (head view)
+  const head = (c) => fig(Object.assign({}, base, c), "preview", null, "head");
+  out.push(section("Hair (8)", T.HAIR.map((h) => cell(head({ hair: h.id }), h.label, 84, 84))));
+  out.push(section("Skin tones (6)", T.SKIN_TONES.map((s) => cell(head({ skinTone: s.id }), s.label, 84, 84))));
+  out.push(section("Personality expressions (5)", T.traitByKey("personality").options.map((o) => cell(head({ personality: o.id }), o.label, 84, 84))));
+  ["eyes", "nose", "mouth", "ear"].forEach((k) => out.push(section(T.traitByKey(k).label + " (" + T.traitByKey(k).options.length + ")", T.traitByKey(k).options.map((o) => cell(head({ [k]: o.id }), o.label, 84, 84)))));
+
+  document.getElementById("sheet").innerHTML = out.join("");
+  document.title = "LOADED";
+</script>
+</body>
+</html>

@@ -80,24 +80,18 @@ button {
   display: block;
 }
 
+/* Sits just below the weather panel, wherever that ends, and behind the characters. */
 .sky-icon {
   position: absolute;
-  top: 8%;
-  left: 4%;
-  color: #e6a817;
-  opacity: 0.9;
+  top: 100%;
+  left: 8px;
+  margin-top: 6px;
 }
 
-.sky-icon[data-icon="cloudy"],
-.sky-icon[data-icon="partly_cloudy"],
-.sky-icon[data-icon="windy_fog"] {
-  color: #6f8599;
-}
-
-.sky-icon[data-icon="rain"],
-.sky-icon[data-icon="thunderstorm"],
-.sky-icon[data-icon="snow"] {
-  color: #4b6786;
+.sky-art {
+  display: block;
+  width: 150px;
+  height: auto;
 }
 
 /* --- Top: the weather summary --- */

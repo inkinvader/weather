@@ -136,8 +136,7 @@
 
     root.innerHTML =
       '<div class="screen">' +
-      '<div class="scene">' + Art.sceneSvg() +
-      '<div class="sky-icon" data-icon="' + icon + '">' + Art.weatherIcon(icon, { decorative: true, size: 120 }) + "</div></div>" +
+      '<div class="scene">' + Art.sceneSvg(icon) + "</div>" +
       '<header class="top"><div class="summary">' +
       '<p class="date">' + esc(formatDate(day.date)) + (mainState.isForecast ? ' <span class="badge">Forecast</span>' : "") + "</p>" +
       '<p class="weather">' + Art.weatherIcon(icon, { decorative: true, size: 30 }) +
@@ -145,7 +144,7 @@
       '<span class="cond">' + esc(Art.WEATHER_ICONS[icon].label) + "</span></p>" +
       '<p class="place">' + esc(placeName(view.location)) + "</p>" +
       remindersHtml(mainState) +
-      "</div></header>" +
+      '</div><div class="sky-icon" data-icon="' + icon + '">' + Art.skyArt(icon) + "</div></header>" +
       '<main class="stage">' + figures + "</main>" +
       controlsHtml(view) + sourceHtml + navHtml("home") +
       "</div>";

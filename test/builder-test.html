@@ -91,7 +91,7 @@
     check("first tab is Body: Skinny / Average / Fat with Average chosen",
       $$(root, ".opt").map((o) => o.textContent.replace("✓", "").trim()).join() === "Skinny,Average,Fat" && $(root, '.opt[aria-pressed="true"]').textContent.includes("Average"));
     check("body tab frames the whole figure; face tabs frame the head",
-      $(root, ".b-preview svg").getAttribute("viewBox") === "0 0 120 232");
+      $(root, ".b-preview svg").getAttribute("viewBox") === "0 0 " + Art.FIGURE_WIDTH + " " + Art.FIGURE_HEIGHT);
 
     // ---- every option on every tab: chooses it, saves it, changes the preview ----
     let allSaved = true, allChanged = true, notes = [];
@@ -99,7 +99,7 @@
       const trait = T.TRAITS[ti];
       $(root, "#tab-" + trait.key).click();
       if ($(root, '[role="tab"][aria-selected="true"]').id !== "tab-" + trait.key) { allSaved = false; notes.push("tab " + trait.key); }
-      const wantView = trait.view === "head" ? "16 2 88 88" : "0 0 120 232";
+      const wantView = trait.view === "head" ? "18 -2 84 84" : "0 0 " + Art.FIGURE_WIDTH + " " + Art.FIGURE_HEIGHT;
       if ($(root, ".b-preview svg").getAttribute("viewBox") !== wantView) { allChanged = false; notes.push("view " + trait.key); }
       if ($$(root, ".opt").length !== trait.options.length) { allSaved = false; notes.push("count " + trait.key); }
       for (const option of trait.options) {

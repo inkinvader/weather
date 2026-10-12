@@ -145,7 +145,7 @@
     const root = frames[c.id];
     const summaryBottom = rect($(root, ".summary")).bottom;
     // The figure is drawn at the bottom of its box (aspect 120:232), so measure where it really starts.
-    const topOfArt = Math.min(...$$(root, ".character-art").map((a) => { const r = rect(a); return r.bottom - Math.min(r.height, (r.width * 232) / 120); }));
+    const topOfArt = Math.min(...$$(root, ".character-art").map((a) => { const r = rect(a); return r.bottom - Math.min(r.height, (r.width * Art.FIGURE_HEIGHT) / Art.FIGURE_WIDTH); }));
     check(c.id + ": weather text ends above the characters (" + Math.round(summaryBottom) + " <= " + Math.round(topOfArt) + ")", summaryBottom <= topOfArt + 0.5);
     check(c.id + ": date stepper (previous, date, next) and location buttons are all at least 44x44",
       $$(root, ".ctl").length === 4 && $$(root, ".ctl").every((b) => rect(b).width >= 44 && rect(b).height >= 44));
@@ -165,7 +165,8 @@
 
   // --- Drawing matches the written outfit name (guards against name/art drift) ---
   const allOutfits = Object.values(Variation.OUTFIT_VARIATIONS).flat();
-  check("every outfit id has a placeholder drawing spec", allOutfits.every((v) => Art.OUTFIT_LOOK[v.id]), allOutfits.length + " outfits");
+  const T0 = Traits.defaultCharacter("t0");
+  check("every outfit id has a drawing spec", allOutfits.every((v) => Art.OUTFIT_LOOK[v.id]), allOutfits.length + " outfits");
   const nameRules = [
     [/tank|crop top/i, "sleeves", "none"],
     [/\btee\b|polo/i, "sleeves", "short"],
@@ -181,11 +182,20 @@
     });
     if (/coat|parka|puffer/i.test(v.name) && !look.coat) mismatches.push(v.id + ": name has a coat but drawing has none");
     // Accessories must match in BOTH directions: drawn if and only if the name mentions them.
-    [["cap", /\bcap\b/i], ["sunHat", /sun hat/i], ["beanie", /beanie/i], ["scarf", /scarf/i], ["glasses", /sunglasses/i]].forEach(([flag, pattern]) => {
+    [["cap", /\bcap\b/i], ["sunHat", /sun hat/i], ["beanie", /beanie/i], ["scarf", /scarf/i], ["glasses", /sunglasses/i],
+     ["hood", /hood/i], ["socks", /socks/i], ["crop", /crop/i], ["pockets", /cargo/i]].forEach(([flag, pattern]) => {
       if (pattern.test(v.name) !== Boolean(look[flag])) mismatches.push(v.id + ' "' + v.name + '": ' + flag + " is " + Boolean(look[flag]) + " but the name says " + pattern.test(v.name));
     });
+    if (/zipped/i.test(v.name) && !look.zip) mismatches.push(v.id + ": name says zipped but the drawing has no zip");
+    if (/puffer/i.test(v.name) && look.coat !== "puffer") mismatches.push(v.id + ": name says puffer but the coat is not drawn as one");
   });
-  check("each outfit's drawing (sleeves, pants, coat, hats, scarf, sunglasses) agrees with its written name", mismatches.length === 0, mismatches.join(" | "));
+  check("each outfit's drawing (sleeves, pants, coat, hats, scarf, hood, socks, crop top, pockets, zip, sunglasses) agrees with its written name", mismatches.length === 0, mismatches.join(" | "));
+  check("every outfit defines its own top and bottom colours (valid hex)",
+    allOutfits.every((v) => { const l = Art.OUTFIT_LOOK[v.id]; return /^#[0-9a-f]{6}$/i.test(l.top) && /^#[0-9a-f]{6}$/i.test(l.bottom); }));
+  check("the 21 outfits are drawn as 21 distinct pictures", new Set(allOutfits.map((v) => Art.characterSvg({ character: T0, category: "mild", outfitId: v.id, tag: v.tag, view: "full", decorative: true }))).size === 21);
+  check("the scene art and sky art differ for each of the 7 weather types",
+    new Set(["clear", "partly_cloudy", "cloudy", "rain", "thunderstorm", "snow", "windy_fog"].map((i) => Art.sceneSvg(i).replace(/-\d+/g, ""))).size === 7 &&
+    new Set(["clear", "partly_cloudy", "cloudy", "rain", "thunderstorm", "snow", "windy_fog"].map((i) => Art.skyArt(i))).size === 7);
   const rendered = frames.hot.querySelector(".character-art").outerHTML;
   check("hot-day figure shows its outfit: hot-2 'light long sleeves, sun hat, sunglasses' draws sleeves and a hat and glasses",
     $(frames.hot, ".character").dataset.outfit !== "hot-2" || (rendered.includes("#d8c08a") && rendered.includes('fill="#1d1d1d"')));
