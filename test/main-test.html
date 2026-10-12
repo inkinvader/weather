@@ -227,16 +227,17 @@
   const hoodProblems = [];
   Object.entries(Art.HOODS).forEach(([name, h]) => {
     // rounded top, not pointed: points a little to each side of the centre, just under the top, are cloth
-    [[48, 13], [72, 13]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": top is pointed (" + x + "," + y + " is not cloth)"); });
+    [[48, 15], [72, 15]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": top is pointed (" + x + "," + y + " is not cloth)"); });
     // open under the chin: neither the chin nor the neck is covered
     [[60, 70], [60, 78]].forEach(([x, y]) => { if (inFill(h.band, x, y)) hoodProblems.push(name + ": the hood closes under the chin (" + x + "," + y + ")"); });
     // joined at the base of the neck: both ends of the band reach the collar
-    [[40, 80], [80, 80]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": an end of the hood does not reach the base of the neck (" + x + "," + y + ")"); });
+    [[44, 88], [76, 88]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": an end of the hood does not reach the base of the neck (" + x + "," + y + ")"); });
     // thin: measure the band across at ear level (y=44) and over the top (x=60)
     let side = 0; for (let x = 8; x < 60; x += 0.5) if (inFill(h.band, x, 44)) side += 0.5;
     let top = 0; for (let y = 0; y < 60; y += 0.5) if (inFill(h.band, 60, y)) top += 0.5;
-    if (side > 14) hoodProblems.push(name + ": too thick at the sides (" + side + ")");
-    if (top > 18) hoodProblems.push(name + ": too thick over the top (" + top + ")");
+    if (side > 11) hoodProblems.push(name + ": too thick at the sides (" + side + ")");
+    const topLimit = { classic: 12, puffy: 15, slouch: 16 }[name]; // the thin hood is strict; the padded and slouchy ones are meant to be a little thicker on top
+    if (top > topLimit) hoodProblems.push(name + ": too thick over the top (" + top + " > " + topLimit + ")");
     // covers the top of the head: the head circle's top arc is under the band (not bare skin sticking out)
     for (let deg = 215; deg <= 325; deg += 10) {
       const x = 60 + 28.8 * Math.cos((deg * Math.PI) / 180), y = 42 + 28.8 * Math.sin((deg * Math.PI) / 180);
@@ -247,6 +248,23 @@
   svgHost.remove();
   check("the three hoods differ from each other (classic, puffy, slouch), and the hooded outfits use all three",
     new Set(Object.values(Art.HOODS).map((h) => h.band)).size === 3 && new Set(["freezing-1", "cold-1", "cold-2"].map((id) => Art.OUTFIT_LOOK[id].hoodStyle)).size === 3);
+  // the back of the hood fills the windows beside the head, so the scene never shows through them
+  const hoodSvgFor = (id) => Art.characterSvg({ character: T0, category: "cold", outfitId: id, tag: "sporty", view: "full", decorative: true });
+  const windowPointsBehind = [];
+  const svgHost3 = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  document.body.appendChild(svgHost3);
+  const fillsPoint = (d, x, y) => { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); svgHost3.appendChild(p); const r = p.isPointInFill(new DOMPoint(x, y)); p.remove(); return r; };
+  Object.entries(Art.HOODS).forEach(([name, h]) => {
+    // points in the windows: between the head circle (centre 60,42 r 28.8) and the band, beside the cheeks and neck, plus the gap beside the neck
+    [[35, 58], [85, 58], [37, 68], [83, 68], [44, 78], [76, 78]].forEach(([x, y]) => {
+      const insideBand = fillsPoint(h.band, x, y);
+      const inHead = Math.hypot(x - 60, y - 42) <= 28.8;
+      if (!insideBand && !inHead && !fillsPoint(h.back, x, y)) windowPointsBehind.push(name + " (" + x + "," + y + ")");
+    });
+  });
+  svgHost3.remove();
+  check("the back of the hood fills every window beside the head and neck (so the scene never shows through), for all three hoods", windowPointsBehind.length === 0, windowPointsBehind.join(" "));
+  check("each hooded outfit draws the back of its hood", ["freezing-1", "cold-1", "cold-2"].every((id) => hoodSvgFor(id).includes('data-hood="back"')) && !hoodSvgFor("mild-2").includes('data-hood="back"'));
   check("a collar is drawn at the base of the neck for each hooded outfit",
     ["freezing-1", "cold-1", "cold-2"].every((id) => Art.characterSvg({ character: T0, category: "cold", outfitId: id, tag: "sporty", view: "full", decorative: true }).includes('data-hood="collar"')));
   // Under a hood the beard is still visible (only hair is hidden)

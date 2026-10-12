@@ -490,24 +490,27 @@
   // area the face and neck show through, used for the soft shadow the hood casts on the forehead.
   const HOODS = {
     classic: {
-      band: "M34 84C26 74 20 56 24 40C27 20 43 8 60 7C77 8 93 20 96 40C100 56 94 74 86 84L74 80C82 70 87 60 87 46C87 33 76 22 60 21C44 22 33 33 33 46C33 60 38 70 46 80Z",
-      inside: "M46 80C38 70 33 60 33 46C33 33 44 22 60 21C76 22 87 33 87 46C87 60 82 70 74 80Z",
-      details: (c) => '<path d="M28 46C29 58 32 70 36 80M92 46C91 58 88 70 84 80M44 13C50 10 56 9 60 9" stroke="' + c + '" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".6"/>',
+      band: "M42 91C29 79 23 58 27 42C30 22 44 10 60 10C76 10 90 22 93 42C97 58 91 79 78 91L72 87C83 76 87 60 87 46C87 33 76 22 60 21C44 22 33 33 33 46C33 60 37 76 48 87Z",
+      inside: "M48 87C37 76 33 60 33 46C33 33 44 22 60 21C76 22 87 33 87 46C87 60 83 76 72 87Z",
+      back: "M42 91C29 79 23 58 27 42C30 22 44 10 60 10C76 10 90 22 93 42C97 58 91 79 78 91Q60 97 42 91Z",
+      details: (c) => '<path d="M29 48C30 62 35 76 44 88M91 48C90 62 85 76 76 88M46 14C52 12 56 11 60 11" stroke="' + c + '" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".6"/>',
     },
     puffy: {
-      band: "M32 86C22 76 16 54 20 38C24 18 42 4 60 4C78 4 96 18 100 38C104 54 98 76 88 86L76 80C84 70 88 60 88 47C88 32 76 20 60 20C44 20 32 32 32 47C32 60 36 70 44 80Z",
-      inside: "M44 80C36 70 32 60 32 47C32 32 44 20 60 20C76 20 88 32 88 47C88 60 84 70 76 80Z",
-      details: (c) => '<path d="M19 52L32 54M19 42L32 42M22 30L34 33M30 16L40 24M44 7L48 20M60 4V20M101 52L88 54M101 42L88 42M98 30L86 33M90 16L80 24M76 7L72 20" stroke="' + c + '" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".6"/>',
+      band: "M42 92C27 80 19 58 22 40C26 18 43 6 60 6C77 6 94 18 98 40C101 58 93 80 78 92L72 88C84 77 88 60 88 47C88 32 76 20 60 20C44 20 32 32 32 47C32 60 36 77 48 88Z",
+      inside: "M48 88C36 77 32 60 32 47C32 32 44 20 60 20C76 20 88 32 88 47C88 60 84 77 72 88Z",
+      back: "M42 92C27 80 19 58 22 40C26 18 43 6 60 6C77 6 94 18 98 40C101 58 93 80 78 92Q60 98 42 92Z",
+      details: (c) => '<path d="M21 50L32 52M21 42L32 42M24 29L34 33M31 15L40 23M45 8L48 20M60 6V20M99 50L88 52M99 42L88 42M96 29L86 33M89 15L80 23M75 8L72 20" stroke="' + c + '" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".6"/>',
     },
     slouch: {
-      band: "M34 84C26 74 20 56 24 40C27 22 42 12 53 9C58 4 67 3 73 8C85 12 94 24 96 40C100 56 94 74 86 84L74 80C82 70 87 60 87 46C87 34 77 23 62 22C45 22 33 33 33 46C33 60 38 70 46 80Z",
-      inside: "M46 80C38 70 33 60 33 46C33 34 45 22 62 22C77 23 87 34 87 46C87 60 82 70 74 80Z",
-      details: (c) => '<path d="M62 6C66 10 72 14 78 16M28 46C29 58 32 70 36 80M92 46C91 58 88 70 84 80" stroke="' + c + '" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".6"/>',
+      band: "M42 91C29 79 23 58 27 42C30 24 43 13 53 11C58 6 67 5 73 10C85 14 92 26 93 42C97 58 91 79 78 91L72 87C83 76 87 60 87 46C87 34 77 23 62 22C45 22 33 33 33 46C33 60 37 76 48 87Z",
+      inside: "M48 87C37 76 33 60 33 46C33 34 45 22 62 22C77 23 87 34 87 46C87 60 83 76 72 87Z",
+      back: "M42 91C29 79 23 58 27 42C30 24 43 13 53 11C58 6 67 5 73 10C85 14 92 26 93 42C97 58 91 79 78 91Q60 97 42 91Z",
+      details: (c) => '<path d="M62 8C66 12 72 16 78 18M29 48C30 62 35 76 44 88M91 48C90 62 85 76 76 88" stroke="' + c + '" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".6"/>',
     },
   };
   const DEFAULT_HOOD = "classic";
   // The collar the hood's two ends run down into, at the base of the neck (a curve under the neck).
-  const HOOD_COLLAR = "M46 79Q60 88 74 79";
+  const HOOD_COLLAR = "M48 85Q60 92 72 85";
 
   // The figure's drawing area: 120 wide, 200 tall. The head is large (Mii-style proportions).
   // (it starts 14 above the head's old top edge, so tall hair such as spikes is never cut off)
@@ -547,6 +550,13 @@
     const pantsEnd = outfit.pants === "short" ? 154 : outfit.socks ? 172 : 186;
 
     const body = [];
+    // The back of the hood (its inside): behind everything else, so the small windows between the head,
+    // the neck and the band show darker hood fabric instead of the scene behind the figure.
+    if (hoodUp) {
+      const backFill = outfit.hoodColor || outfit.top;
+      const backShape = (HOODS[look.hoodStyle || outfit.hoodStyle] || HOODS[DEFAULT_HOOD]).back;
+      body.push('<path data-hood="back" d="' + backShape + '" fill="' + V(shade(backFill, -0.38), "cyl") + '"/>');
+    }
 
     // legs: skin first (shows below shorts and under socks), then the pants over the top
     legXs.forEach((x, i) => {
@@ -633,20 +643,20 @@
     }
     // The scarf goes around the neck. Under a hood it is drawn after the hood, and a little lower,
     // so it stays visible and does not cover the chin.
-    const scarfY = hoodUp ? 78 : 69;
+    const scarfY = hoodUp ? 88 : 69;
     const scarfSvg = outfit.scarf
       ? '<rect x="' + (torsoX - 2) + '" y="' + scarfY + '" width="' + (torsoW + 4) + '" height="13" rx="6" fill="' + V(outfit.accent, "cyl") + '"/><rect x="' + (torsoX + torsoW - 14) + '" y="' + (scarfY + 7) + '" width="9" height="22" rx="3.5" fill="' + V(shade(outfit.accent, -0.12), "cyl") + '"/>'
       : "";
     if (!hoodUp) body.push(scarfSvg);
     // hoodie drawstrings hang from under the hood onto the chest
     if (outfit.drawstrings) {
-      body.push('<path d="M49 85q-3 11 -1 22M71 85q3 11 1 22" stroke="#f4f1ea" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="48" cy="108" r="2.3" fill="#f4f1ea"/><circle cx="72" cy="108" r="2.3" fill="#f4f1ea"/>');
+      body.push('<path d="M51 90q-3 10 -1 19M69 90q3 10 1 19" stroke="#f4f1ea" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="50" cy="110" r="2.3" fill="#f4f1ea"/><circle cx="70" cy="110" r="2.3" fill="#f4f1ea"/>');
     }
     // hood collar: the curve the hood's two ends run down into, at the base of the neck
     if (hoodUp) {
       const collarFill = outfit.hoodColor || outfit.top;
       // a solid roll: dark outline, flat cloth colour, a darker underside and a lighter top edge
-      body.push('<path data-hood="collar" d="' + HOOD_COLLAR + '" fill="none" stroke="#2a1f33" stroke-opacity=".6" stroke-width="11" stroke-linecap="round"/><path d="' + HOOD_COLLAR + '" fill="none" stroke="' + collarFill + '" stroke-width="9" stroke-linecap="round"/><path d="M47 81Q60 91 73 81" fill="none" stroke="' + shade(collarFill, -0.25) + '" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M48 77Q60 85 72 77" fill="none" stroke="' + shade(collarFill, 0.25) + '" stroke-width="2" stroke-linecap="round" opacity=".8"/>');
+      body.push('<path data-hood="collar" d="' + HOOD_COLLAR + '" fill="none" stroke="#2a1f33" stroke-opacity=".6" stroke-width="11" stroke-linecap="round"/><path d="' + HOOD_COLLAR + '" fill="none" stroke="' + collarFill + '" stroke-width="9" stroke-linecap="round"/><path d="M49 87Q60 94 71 87" fill="none" stroke="' + shade(collarFill, -0.25) + '" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M50 83Q60 90 70 83" fill="none" stroke="' + shade(collarFill, 0.25) + '" stroke-width="2" stroke-linecap="round" opacity=".8"/>');
     }
     // a short neck; the head's shadow falls only on the neck and chest, clipped to them
     body.push('<rect x="53" y="62" width="14" height="18" rx="5" fill="' + V(skin, "cyl") + '"/>');
