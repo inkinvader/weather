@@ -251,6 +251,12 @@
   check("under a hood the beard still shows in the hair colour while the hair itself does not",
     beardUnderHood("curly-auburn", "beard").includes("#8a3b1f") && !beardUnderHood("curly-auburn", "clean").includes("#8a3b1f"));
 
+  // --- The hairline sits high on the forehead, not at eyebrow level ---
+  check("hairline: the hair ends at least 6 units above the eyebrows at the centre of the forehead (it used to sit right on the brows)",
+    Art.HAIRLINE.browY - Art.HAIRLINE.centreY >= 6, JSON.stringify(Art.HAIRLINE));
+  check("the fringe is uneven tufts, not one smooth curve (the hair shape has several curve segments along the hairline)",
+    (Art.characterSvg({ character: T0, category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true }).match(/C\d+ \d+ \d+ \d+ \d+ \d+/g) || []).length >= 6);
+
   // --- Hair is drawn as one piece, and tall hair is not cut off ---
   const drawHair = (hairId) => Art.characterSvg({ character: Object.assign({}, T0, { hair: hairId }), category: "mild", outfitId: "preview", tag: null, view: "full", decorative: true });
   const hairHost = document.createElement("div");

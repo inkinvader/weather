@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hood shape options</title>
+  <style>
+    /* Four different hood shapes on the same figure, large and phone-sized, to pick from. Not part of the app. */
+    body { margin: 0; padding: 14px; font: 14px system-ui, sans-serif; background: #eef2f6; color: #12212f; }
+    h1 { margin: 0 0 4px; font-size: 18px; }
+    p { margin: 2px 0 10px; max-width: 880px; }
+    .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+    .opt { text-align: center; }
+    .opt b { display: block; font-size: 16px; margin-top: 4px; }
+    .opt small { display: block; max-width: 250px; margin: 0 auto; }
+    .big svg { width: 250px; height: 446px; background: #dcecfa; border-radius: 10px; display: block; }
+    .small svg { width: 70px; height: 125px; background: #dcecfa; border-radius: 8px; display: block; }
+  </style>
+</head>
+<body>
+<h1>Hood shape options</h1>
+<p>The same outfit (hoodie under a jacket) with four different hood shapes. Tell me the letter you want, or what is still wrong with it
+   (for example: top too pointed, too wide at the shoulders, face opening too window-like, hood too thick or too thin around the face).</p>
+<div class="row big" id="big"></div>
+<p>The same four at the size they appear in the app:</p>
+<div class="row small" id="small"></div>
+<script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
+<script src="../js/art.js"></script>
+<script>
+  const options = [
+    ["A", "cone", "Current: tall and pointed, flares to the shoulders"],
+    ["B", "dome", "Wide, low, rounded dome; thick fabric at the sides"],
+    ["C", "arch", "Widest at the ears, narrowing toward the neck; soft rounded peak"],
+    ["D", "slouch", "Slouchy: the peak flops to one side, uneven sides"],
+  ];
+  const character = Object.assign(Traits.defaultCharacter("hoodopts"), { hair: "curly-auburn", facialHair: "full", mouth: "smirk", personality: "neutral", genderPresentation: "masculine" });
+  const draw = (style) => Art.characterSvg({ character: character, category: "cold", outfitId: "cold-1", tag: "sporty", hoodStyle: style, view: "full", decorative: true });
+  document.getElementById("big").innerHTML = options.map(([letter, style, note]) => '<div class="opt">' + draw(style) + "<b>" + letter + "</b><small>" + note + "</small></div>").join("");
+  document.getElementById("small").innerHTML = options.map(([letter, style]) => '<div class="opt">' + draw(style) + "<b>" + letter + "</b></div>").join("");
+  document.title = "LOADED";
+</script>
+</body>
+</html>

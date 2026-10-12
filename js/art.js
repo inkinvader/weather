@@ -310,6 +310,9 @@
 
   // --- Head parts, drawn in a 120-wide head space (centre 60,48, radius 24) and scaled up later ---
   // Hair is returned in two layers: `back` goes behind the body, `front` over the head.
+  // Where the hair meets the forehead, measured in head space (the brows are at y=40).
+  const HAIRLINE = { centreY: 29, browY: 40 };
+
   const SPIKES = [[-58, 9], [-38, 13], [-18, 16], [2, 19], [20, 15], [40, 12], [60, 8]]
     .map(([deg, len]) => {
       const at = (angle, radius) => [60 + radius * Math.sin((angle * Math.PI) / 180), 46 - radius * Math.cos((angle * Math.PI) / 180)];
@@ -331,7 +334,11 @@
     const merged = (shapes) =>
       '<g stroke="' + OUT + '" stroke-opacity=".5" stroke-width="2.4" stroke-linejoin="round">' + shapes(OUT) + "</g>" + shapes(fill);
     // The hairline: a mass of hair over the top of the head, with a scalloped fringe across the forehead.
-    const cap = (f) => '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + f + '"/>';
+    // The hair mass: a dome over the top of the head with a natural fringe. The hairline sits high on the
+    // forehead (about y=27-31; the brows are at y=40), with uneven tufts instead of a smooth curve, and the
+    // sides come down only to the temples. (It used to be one smooth arc at eyebrow level.)
+    const cap = (f) =>
+      '<path d="M34 44A26 24 0 0 1 86 44L81 44C81 39 79 35 76 32C72 31 66 31 62 27C58 31 54 31 50 27C46 31 42 31 40 33C39 37 39 41 39 44L34 44Z" fill="' + f + '"/>';
     const layers = {
       short: { back: "", front: merged((f) => cap(f)) },
       long: { back: merged((f) => '<path d="M33 44h54v50q-27 9 -54 0z" fill="' + f + '"/>'), front: merged((f) => cap(f)) },
@@ -464,8 +471,32 @@
   // Hood silhouette (figure space). Outer: an arch that peaks at y=3, well above the head (whose top is
   // at y=13), fully encloses the head (the head is 57.6 wide), and flares from about 66 wide at head height to 80
   // wide at the shoulders. Opening: the face.
-  const HOOD_OUTER = "M20 90C21 62 26 40 32 28C38 12 52 6 60 3C68 6 82 12 88 28C94 40 99 62 100 90Q60 99 20 90Z";
-  const HOOD_OPENING = "M34.5 46C34.5 32 50 19 60 18C70 19 85.5 32 85.5 46C85.5 62 74 74 60 74C46 74 34.5 62 34.5 46Z";
+  // Alternative hood shapes, for the Developer to choose between (see test/hood-options.html). `cone` is the
+  // current one. Each has an outer silhouette and an opening for the face.
+  const HOODS = {
+    cone: {
+      outer: "M20 90C21 62 26 40 32 28C38 12 52 6 60 3C68 6 82 12 88 28C94 40 99 62 100 90Q60 99 20 90Z",
+      opening: "M34.5 46C34.5 32 50 19 60 18C70 19 85.5 32 85.5 46C85.5 62 74 74 60 74C46 74 34.5 62 34.5 46Z",
+    },
+    // a wide, low, rounded dome, much thicker at the sides, with a nearly round face opening
+    dome: {
+      outer: "M16 92C12 68 14 44 24 28C32 14 46 6 60 5C74 6 88 14 96 28C106 44 108 68 104 92Q60 101 16 92Z",
+      opening: "M33 46C33 32 46 21 60 21C74 21 87 32 87 46C87 62 75 75 60 75C45 75 33 62 33 46Z",
+    },
+    // widest around the ears and narrowing toward the neck, with a soft rounded peak; thin fabric around a big face
+    arch: {
+      outer: "M33 94C25 78 24 54 28 38C33 21 49 10 60 5C71 10 87 21 92 38C96 54 95 78 87 94Q60 101 33 94Z",
+      opening: "M32 47C32 33 45 22 60 22C75 22 88 33 88 47C88 62 76 75 60 75C44 75 32 62 32 47Z",
+    },
+    // a slouchy hood: the peak flops to one side, and the sides are uneven; same thin fabric and big face
+    slouch: {
+      outer: "M31 94C23 78 23 54 28 38C33 22 46 14 56 10C62 3 71 5 77 13C87 22 93 32 94 42C97 56 95 78 88 94Q60 100 31 94Z",
+      opening: "M32 47C32 33 45 22 60 22C75 22 88 33 88 47C88 62 76 75 60 75C44 75 32 62 32 47Z",
+    },
+  };
+  const DEFAULT_HOOD = "cone";
+  const HOOD_OUTER = HOODS[DEFAULT_HOOD].outer;
+  const HOOD_OPENING = HOODS[DEFAULT_HOOD].opening;
   const HOOD_GEOMETRY = { apexY: 3, headTopY: 13, widthAtHeadCentre: 66, bottomWidth: 80, headRadius: 28.8, headCentreY: 42 };
 
   // The figure's drawing area: 120 wide, 200 tall. The head is large (Mii-style proportions).
@@ -629,12 +660,14 @@
     let hoodFrame = "";
     if (hoodUp) {
       const hoodFill = outfit.hoodColor || outfit.top;
+      const shape = HOODS[look.hoodStyle] || HOODS[DEFAULT_HOOD];
       const openClip = nextId("hoodopen");
-      defs.push('<clipPath id="' + openClip + '"><path d="' + HOOD_OPENING + '"/></clipPath>');
+      defs.push('<clipPath id="' + openClip + '"><path d="' + shape.opening + '"/></clipPath>');
       hoodFrame =
-        '<path fill-rule="evenodd" d="' + HOOD_OUTER + HOOD_OPENING + '" fill="' + V(hoodFill, "cyl") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>' +
+        '<path fill-rule="evenodd" d="' + shape.outer + shape.opening + '" fill="' + V(hoodFill, "cyl") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>' +
         '<g clip-path="url(#' + openClip + ')" stroke="none"><rect data-shadow="body" x="28" y="14" width="64" height="66" fill="' + edgeFill + '"/></g>' +
-        '<path d="' + HOOD_OPENING + '" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.4"/>' +
+        // a soft darker lining where the fabric turns in around the face, not a hard light outline
+        '<path d="' + shape.opening + '" fill="none" stroke="' + shade(hoodFill, -0.4) + '" stroke-opacity=".4" stroke-width="3" stroke-linejoin="round"/>' +
         '<path d="M60 5V17" stroke="' + shade(hoodFill, -0.3) + '" stroke-width="1.4" fill="none" stroke-linecap="round"/>' +
         '<path d="M44 16C34 34 29 60 27 88M76 16C86 34 91 60 93 88" stroke="' + shade(hoodFill, -0.25) + '" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".7"/>' +
         '<ellipse cx="44" cy="22" rx="8" ry="4" fill="' + shineFill + '" stroke="none" transform="rotate(-40 46 26)" opacity=".75"/>';
@@ -658,7 +691,7 @@
   }
 
   window.Art = {
-    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOOD_GEOMETRY,
+    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOOD_GEOMETRY, HAIRLINE, HOODS,
     weatherIcon, reminderIcon, skyArt, sceneSvg, characterSvg,
   };
 })();
