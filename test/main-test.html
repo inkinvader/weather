@@ -231,7 +231,7 @@
     // open under the chin: neither the chin nor the neck is covered
     [[60, 70], [60, 78]].forEach(([x, y]) => { if (inFill(h.band, x, y)) hoodProblems.push(name + ": the hood closes under the chin (" + x + "," + y + ")"); });
     // joined at the base of the neck: both ends of the band reach the collar
-    [[44, 88], [76, 88]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": an end of the hood does not reach the base of the neck (" + x + "," + y + ")"); });
+    [[54, 85], [66, 85]].forEach(([x, y]) => { if (!inFill(h.band, x, y)) hoodProblems.push(name + ": an end of the hood does not reach the sides of the neck (" + x + "," + y + ")"); });
     // thin: measure the band across at ear level (y=44) and over the top (x=60)
     let side = 0; for (let x = 8; x < 60; x += 0.5) if (inFill(h.band, x, 44)) side += 0.5;
     let top = 0; for (let y = 0; y < 60; y += 0.5) if (inFill(h.band, 60, y)) top += 0.5;
@@ -265,8 +265,11 @@
   svgHost3.remove();
   check("the back of the hood fills every window beside the head and neck (so the scene never shows through), for all three hoods", windowPointsBehind.length === 0, windowPointsBehind.join(" "));
   check("each hooded outfit draws the back of its hood", ["freezing-1", "cold-1", "cold-2"].every((id) => hoodSvgFor(id).includes('data-hood="back"')) && !hoodSvgFor("mild-2").includes('data-hood="back"'));
-  check("a collar is drawn at the base of the neck for each hooded outfit",
-    ["freezing-1", "cold-1", "cold-2"].every((id) => Art.characterSvg({ character: T0, category: "cold", outfitId: id, tag: "sporty", view: "full", decorative: true }).includes('data-hood="collar"')));
+  check("no roll across the middle of the neck (crossed out by the Developer): the two ends of the hood meet at the sides of the neck instead",
+    ["freezing-1", "cold-1", "cold-2"].every((id) => !hoodSvgFor(id).includes('data-hood="collar"')));
+  // the band's two ends must nearly touch at the neck (a narrow gap, about the width of the neck)
+  const neckGap = Object.entries(Art.HOODS).map(([name, h]) => { let gap = 0; for (let x = 40; x < 80; x += 0.5) if (!fillsPoint(h.band, x, 84) && x > 52 && x < 68) gap += 0.5; return name + ":" + gap; });
+  check("the ends of every hood come down and in to meet at the neck: the gap between them at the base of the neck is no wider than the neck plus its outline (16)", neckGap.every((g) => Number(g.split(":")[1]) <= 16), neckGap.join(" "));
   // Under a hood the beard is still visible (only hair is hidden)
   const beardUnderHood = (hairId, facial) => Art.characterSvg({ character: Object.assign({}, T0, { hair: hairId, facialHair: facial }), category: "cold", outfitId: "cold-1", tag: "sporty", view: "full", decorative: true });
   check("under a hood the beard still shows in the hair colour while the hair itself does not",
