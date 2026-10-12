@@ -196,6 +196,57 @@
   check("the scene art and sky art differ for each of the 7 weather types",
     new Set(["clear", "partly_cloudy", "cloudy", "rain", "thunderstorm", "snow", "windy_fog"].map((i) => Art.sceneSvg(i).replace(/-\d+/g, ""))).size === 7 &&
     new Set(["clear", "partly_cloudy", "cloudy", "rain", "thunderstorm", "snow", "windy_fog"].map((i) => Art.skyArt(i))).size === 7);
+  // --- Hoodies are always worn with the hood up, and no hair shows through ---
+  const hoodOutfits = allOutfits.filter((v) => /hood/i.test(v.name));
+  check("outfits that mention a hood or hoodie: " + hoodOutfits.map((v) => v.id).join(", "), hoodOutfits.length === 3);
+  check("every hood or hoodie outfit is drawn with the hood UP (never down)", hoodOutfits.every((v) => Art.OUTFIT_LOOK[v.id].hood === "up"),
+    hoodOutfits.map((v) => v.id + ":" + Art.OUTFIT_LOOK[v.id].hood).join(" "));
+  check("no outfit is drawn with a hood down", allOutfits.every((v) => Art.OUTFIT_LOOK[v.id].hood === undefined || Art.OUTFIT_LOOK[v.id].hood === "up"));
+  const visibleHair = Traits.HAIR.filter((h) => h.style !== "bald");
+  const leaks = [];
+  // Under a hood the figure must look exactly the same whatever the hairstyle, i.e. identical to bald.
+  const drawWith = (v, hairId) => Art.characterSvg({ character: Object.assign({}, T0, { hair: hairId }), category: "cold", outfitId: v.id, tag: v.tag, view: "full", decorative: true });
+  hoodOutfits.forEach((v) => {
+    const bald = drawWith(v, "bald");
+    visibleHair.forEach((h) => {
+      // gradient ids are unique per drawing, so compare with those numbers removed
+      const strip = (m) => m.replace(/-\d+/g, "-N");
+      if (strip(drawWith(v, h.id)) !== strip(bald)) leaks.push(v.id + "/" + h.id);
+    });
+    if (!bald.includes('fill-rule="evenodd"')) leaks.push(v.id + " has no hood frame");
+  });
+  check("under a hood the drawing is identical for all 7 hairstyles and bald (no fringe, bun, spikes or locks poke out), for each hoodie", leaks.length === 0, leaks.join(", "));
+  const controlHair = Art.characterSvg({ character: Object.assign({}, T0, { hair: "spiky-blond" }), category: "mild", outfitId: "mild-2", tag: "covered", view: "full", decorative: true });
+  check("control: without a hood the same hairstyle IS drawn", controlHair.includes("#e0b84a") && !controlHair.includes('fill-rule="evenodd"'));
+
+  // --- Grin shows clenched, gritted teeth ---
+  const grinHead = Art.characterSvg({ character: Object.assign({}, T0, { mouth: "grin" }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true });
+  const smileHead = Art.characterSvg({ character: Object.assign({}, T0, { mouth: "smile" }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true });
+  check("grin draws white teeth with a clench line and tooth divisions; a smile does not",
+    grinHead.includes('width="22" height="10"') && grinHead.includes("M49.5 64h21M54.5 59.5v9M60 59.5v9M65.5 59.5v9") && !smileHead.includes("M49.5 64h21"));
+
+  // --- Shadows: on the body only (clipped to the model), plus one shadow on the ground ---
+  const shadowFigures = [];
+  allOutfits.forEach((v) => shadowFigures.push(["outfit " + v.id, Art.characterSvg({ character: T0, category: "mild", outfitId: v.id, tag: v.tag, view: "full", decorative: true })]));
+  ["skinny", "average", "fat"].forEach((b) => ["feminine", "masculine"].forEach((g) =>
+    shadowFigures.push([b + "/" + g, Art.characterSvg({ character: Object.assign({}, T0, { bodyType: b, genderPresentation: g }), category: "mild", outfitId: "preview", tag: null, view: "full", decorative: true })])));
+  const shadowHost = document.createElement("div");
+  document.body.appendChild(shadowHost);
+  const shadowProblems = [];
+  shadowFigures.forEach(([label, markup]) => {
+    shadowHost.innerHTML = markup;
+    const bodyShadows = shadowHost.querySelectorAll('[data-shadow="body"]');
+    const ground = shadowHost.querySelectorAll('[data-shadow="ground"]');
+    if (!bodyShadows.length) shadowProblems.push(label + ": no body shadow at all");
+    bodyShadows.forEach((el) => { if (!el.closest("[clip-path]")) shadowProblems.push(label + ": a body shadow is not clipped to the model"); });
+    if (ground.length !== 1) shadowProblems.push(label + ": expected exactly one ground shadow");
+    if (/rgba\(20,\s*10,\s*40/.test(markup.replace(/data-shadow="body" d="[^"]*" stroke="rgba\(20,10,40,\.16\)"/, ""))) shadowProblems.push(label + ": an unclipped dark shape is drawn");
+  });
+  shadowHost.remove();
+  check("every body shadow (chin, between the legs, waist crease) is clipped to the model's own shape, in all " + shadowFigures.length + " figures; only the ground shadow lies outside it", shadowProblems.length === 0, shadowProblems.slice(0, 4).join(" | "));
+  const headOnly = Art.characterSvg({ character: T0, category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true });
+  check("close-up head views have no ground shadow", !headOnly.includes('data-shadow="ground"'));
+
   const rendered = frames.hot.querySelector(".character-art").outerHTML;
   check("hot-day figure shows its outfit: hot-2 'light long sleeves, sun hat, sunglasses' draws sleeves and a hat and glasses",
     $(frames.hot, ".character").dataset.outfit !== "hot-2" || (rendered.includes("#d8c08a") && rendered.includes('fill="#1d1d1d"')));

@@ -57,11 +57,15 @@
     const shadow = nextId("shadow");
     defs.push('<radialGradient id="' + shine + '"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>');
     defs.push('<radialGradient id="' + shadow + '"><stop offset="0" stop-color="#1a1230" stop-opacity=".38"/><stop offset="1" stop-color="#1a1230" stop-opacity="0"/></radialGradient>');
+    // soft fade used for shadows ON the body: always drawn inside a clip of the body's own shape
+    const fade = nextId("fade");
+    defs.push('<linearGradient id="' + fade + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1230" stop-opacity=".3"/><stop offset="1" stop-color="#1a1230" stop-opacity="0"/></linearGradient>');
     return {
       V: V,
       defs: defs,
       shineFill: "url(#" + shine + ")",
       shadowFill: "url(#" + shadow + ")",
+      fadeFill: "url(#" + fade + ")",
     };
   }
 
@@ -264,14 +268,14 @@
   // One entry per outfit id, written to match the outfit's name in variation.js (a test keeps the
   // drawing and the written name in sync). Fields:
   //   sleeves: long | short | none      pants: long | short      top, bottom, accent: colours
-  //   coat: wool | puffer | parka (longer outer layer)   zip   hood: up | down   scarf   beanie   cap
+  //   coat: wool | puffer | parka (longer outer layer)   zip   hood: up (always up, never down), hoodColor (defaults to top)   scarf   beanie   cap
   //   sunHat   glasses   socks   cuffs   stripe   pockets   crop   rib
   const OUTFIT_LOOK = {
     "freezing-1": { sleeves: "long", pants: "long", top: "#4b6fa8", bottom: "#2f3b52", accent: "#c9553d", coat: "puffer", hood: "up", scarf: true, cuffs: true },
     "freezing-2": { sleeves: "long", pants: "long", top: "#2d3139", bottom: "#23262e", accent: "#3b3f48", coat: "wool", beanie: true },
     "freezing-3": { sleeves: "long", pants: "long", top: "#6b8e6a", bottom: "#4a4f58", accent: "#f2efe6", coat: "parka", zip: true, socks: true },
-    "cold-1": { sleeves: "long", pants: "long", top: "#d9573b", bottom: "#3a3f4b", accent: "#9aa1a9", zip: true, hood: "down", stripe: true, cuffs: true },
-    "cold-2": { sleeves: "long", pants: "long", top: "#7a5c3e", bottom: "#3b4a6b", accent: "#c9553d", coat: "parka", zip: true, hood: "down", scarf: true },
+    "cold-1": { sleeves: "long", pants: "long", top: "#d9573b", bottom: "#3a3f4b", accent: "#9aa1a9", zip: true, hood: "up", hoodColor: "#9aa1a9", stripe: true, cuffs: true },
+    "cold-2": { sleeves: "long", pants: "long", top: "#7a5c3e", bottom: "#3b4a6b", accent: "#c9553d", coat: "parka", zip: true, hood: "up", hoodColor: "#8a8f98", scarf: true },
     "cold-3": { sleeves: "long", pants: "long", top: "#2d3139", bottom: "#8a8f98", accent: "#454b55", coat: "wool" },
     "cool-1": { sleeves: "long", pants: "long", top: "#3fa3a0", bottom: "#2b2f38", accent: "#ffffff", zip: true, stripe: true, cuffs: true },
     "cool-2": { sleeves: "long", pants: "long", top: "#8a8f98", bottom: "#23262e", accent: "#6f757e", rib: true },
@@ -366,7 +370,9 @@
   function mouthSvg(id) {
     return {
       smile: '<path d="M52 61q8 7 16 0" stroke="' + FACE_INK + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
-      grin: '<path d="M50 60q10 12 20 0z" fill="' + FACE_INK + '"/>',
+      grin:
+        '<rect x="49" y="59" width="22" height="10" rx="4.5" fill="#fff" stroke="' + FACE_INK + '" stroke-width="1.8"/>' +
+        '<path d="M49.5 64h21M54.5 59.5v9M60 59.5v9M65.5 59.5v9" stroke="' + FACE_INK + '" stroke-width="1.1" fill="none"/>',
       flat: '<path d="M53 63h14" stroke="' + FACE_INK + '" stroke-width="2.4" stroke-linecap="round"/>',
       small: '<circle cx="60" cy="63" r="2.4" fill="' + FACE_INK + '"/>',
       smirk: '<path d="M52 63q8 3 15 -3" stroke="' + FACE_INK + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>',
@@ -403,10 +409,12 @@
   function characterSvg(look) {
     const character = Traits.normalize(look.character || { id: "?" });
     const outfit = OUTFIT_LOOK[look.outfitId] || OUTFIT_LOOK["mild-2"];
-    const { V, defs, shineFill, shadowFill } = volumes();
+    const { V, defs, shineFill, shadowFill, fadeFill } = volumes();
     const skin = Traits.skinColor(character);
     const skinDark = shade(skin, -0.12);
-    const hair = hairLayers(Traits.hairOf(character), V);
+    const hoodUp = outfit.hood === "up";
+    // A hood covers the hair completely, so none of it is drawn (nothing can poke through).
+    const hair = hoodUp ? { back: "", front: "" } : hairLayers(Traits.hairOf(character), V);
     const wide = BODY_WIDTH[character.bodyType] + (look.tag === "loose" ? 12 : 0);
     const longPants = outfit.pants === "long";
     const gleam = (cx, cy, rx, ry, rot, opacity) =>
@@ -440,7 +448,10 @@
       body.push(gleam(x + legW * 0.3, 140, legW * 0.14, 14, 0, 0.55));
     });
     // shadow where the legs meet, then the shoes: glossy sneakers with a white sole
-    body.push('<ellipse cx="60" cy="127" rx="8" ry="3.4" fill="rgba(20,10,40,.28)" stroke="none"/>');
+    // (shadows on the body are clipped to the body's own shape, so none can float in empty air)
+    const legsClip = nextId("legclip");
+    defs.push('<clipPath id="' + legsClip + '">' + legXs.map((x) => '<rect x="' + x + '" y="124" width="' + legW + '" height="' + (pantsEnd - 124) + '" rx="6"/>').join("") + "</clipPath>");
+    body.push('<g clip-path="url(#' + legsClip + ')" stroke="none"><rect data-shadow="body" x="48" y="124" width="24" height="16" fill="' + fadeFill + '"/></g>');
     legXs.forEach((x) => {
       body.push('<rect x="' + (x - 2) + '" y="183" width="' + (legW + 6) + '" height="12" rx="6" fill="' + V("#3b3b4a", "cyl") + '"/><rect x="' + (x - 2) + '" y="192" width="' + (legW + 6) + '" height="4" rx="2" fill="#f4f4f4"/>');
       body.push(gleam(x + 3.5, 186.5, 4, 2, -15, 0.9));
@@ -486,7 +497,7 @@
       body.push('<path d="M0 ' + (t0 + 20) + "H120M0 " + (t0 + 40) + "H120M0 " + (t0 + 60) + 'H120" stroke="' + shade(outfit.top, -0.3) + '" stroke-width="1.6" fill="none"/>');
     }
     body.push(gleam(60 - torsoW * 0.22, t0 + topH * 0.34, torsoW * 0.14, topH * 0.3, 0, 0.75));
-    body.push('<path d="M0 ' + (mid + 2) + "Q60 " + (mid + 6) + ' 120 ' + (mid + 2) + '" stroke="rgba(20,10,40,.16)" stroke-width="3" fill="none"/>');
+    body.push('<path data-shadow="body" d="M0 ' + (mid + 2) + "Q60 " + (mid + 6) + ' 120 ' + (mid + 2) + '" stroke="rgba(20,10,40,.16)" stroke-width="3" fill="none"/>');
     body.push("</g>");
     if (outfit.coat === "wool") {
       body.push('<path d="M60 ' + torsoTop + "L46 " + (torsoTop + 4) + "L55 " + (torsoTop + 32) + 'z" fill="' + V(shade(outfit.top, 0.14), "cyl") + '"/><path d="M60 ' + torsoTop + "L74 " + (torsoTop + 4) + "L65 " + (torsoTop + 32) + 'z" fill="' + V(shade(outfit.top, 0.14), "cyl") + '"/>');
@@ -507,18 +518,14 @@
     } else if (!outfit.coat && !outfit.zip && !outfit.hood && !outfit.scarf) {
       body.push('<path d="M51 ' + (torsoTop - 1) + "q9 11 18 0z" + '" fill="' + skinDark + '"/>');
     }
-    if (outfit.hood === "down") {
-      body.push('<path d="M43 ' + (torsoTop - 1) + "q17 18 34 0q5 11 -5 15h-24q-10 -4 -5 -15z" + '" fill="' + V(outfit.accent, "cyl") + '"/><path d="M55 ' + (torsoTop + 12) + "v12M65 " + (torsoTop + 12) + 'v12" stroke="#f4f1ea" stroke-width="1.8" stroke-linecap="round"/>');
-    }
     if (outfit.scarf) {
       body.push('<rect x="' + (torsoX - 2) + '" y="69" width="' + (torsoW + 4) + '" height="13" rx="6" fill="' + V(outfit.accent, "cyl") + '"/><rect x="' + (torsoX + torsoW - 14) + '" y="76" width="9" height="22" rx="3.5" fill="' + V(shade(outfit.accent, -0.12), "cyl") + '"/>');
     }
-    // a short neck, then the head casts a soft shadow on it and the chest
+    // a short neck; the head's shadow falls only on the neck and chest, clipped to them
     body.push('<rect x="53" y="62" width="14" height="18" rx="5" fill="' + V(skin, "cyl") + '"/>');
-    body.push('<ellipse cx="60" cy="73" rx="14" ry="5" fill="rgba(20,10,40,.2)" stroke="none"/>');
-
-    // hood up goes behind the head
-    const hoodBack = outfit.hood === "up" ? '<circle cx="60" cy="42" r="35" fill="' + V(outfit.top, "sphere") + '"/>' : "";
+    const neckClip = nextId("neckclip");
+    defs.push('<clipPath id="' + neckClip + '"><rect x="53" y="62" width="14" height="18" rx="5"/><path d="' + torsoPath + '"/></clipPath>');
+    body.push('<g clip-path="url(#' + neckClip + ')" stroke="none"><rect data-shadow="body" x="40" y="62" width="40" height="20" fill="' + fadeFill + '"/></g>');
 
     // head group: scaled-up head space; the head is a shaded sphere with a glossy highlight
     const head = [];
@@ -531,18 +538,19 @@
     if (outfit.cap) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M34 40a26 22 0 0 1 52 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="58" y="36" width="40" height="7" rx="3.5" fill="' + V(shade(outfit.accent, -0.15), "vert") + '"/></g>' + gleam(50, 28, 8, 3.5, -20, 0.7));
     if (outfit.sunHat) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><ellipse cx="60" cy="31" rx="40" ry="7" fill="' + V(outfit.accent, "vert") + '"/><path d="M40 31a20 16 0 0 1 40 0z" fill="' + V(shade(outfit.accent, 0.15), "sphere") + '"/><rect x="40" y="26" width="40" height="5" fill="#c9553d"/></g>');
     if (outfit.beanie) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M35 38a25 24 0 0 1 50 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="34" y="35" width="52" height="7" rx="3" fill="' + V(shade(outfit.accent, -0.2), "vert") + '"/><circle cx="60" cy="14" r="5" fill="' + V(shade(outfit.accent, 0.2), "sphere") + '"/></g>' + gleam(48, 26, 8, 4, -20, 0.6));
-    const hoodRim = outfit.hood === "up"
-      ? '<path d="M25 50A35 35 0 0 1 95 50L88 50A28 28 0 0 0 32 50Z" fill="' + V(outfit.top, "sphere") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>'
+    // The hood is drawn over the head: a big rounded shape with an oval opening for the face
+    // (even-odd fill), so everything above the brows and around the cheeks is cloth, not hair.
+    const hoodFrame = hoodUp
+      ? '<path fill-rule="evenodd" d="M24 43a36 36 0 1 0 72 0a36 36 0 1 0 -72 0ZM36 52a24 22 0 1 0 48 0a24 22 0 1 0 -48 0Z" fill="' + V(outfit.hoodColor || outfit.top, "sphere") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>'
       : "";
 
     const outlined = "<g " + OUTLINE + ' stroke-width="1.3">' + body.join("") + "</g>";
     const parts =
-      (look.view === "head" ? "" : '<ellipse cx="60" cy="195" rx="38" ry="5" fill="' + shadowFill + '"/>') + // contact shadow on the ground
+      (look.view === "head" ? "" : '<ellipse data-shadow="ground" cx="60" cy="195" rx="38" ry="5" fill="' + shadowFill + '"/>') + // contact shadow on the ground
       "<g " + OUTLINE + ' stroke-width="1.2">' + hair.back + "</g>" +
       outlined +
-      (hoodBack ? "<g " + OUTLINE + ' stroke-width="1.3">' + hoodBack + "</g>" : "") +
       '<g transform="' + HEAD_TRANSFORM + '">' + head.join("") + "</g>" +
-      hoodRim;
+      hoodFrame;
 
     // "head" frames just the head and hair (builder face tabs, gallery thumbnails); no fixed size:
     // CSS scales the figure to the room available, anchored to the ground.
