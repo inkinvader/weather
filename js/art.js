@@ -1,17 +1,21 @@
 // Original vector artwork, drawn in code (Wii/Mii-era-inspired: big round heads, simple rounded
-// shapes, soft outlines). This is the final art, not a placeholder: research.md Revisions records
-// the 2026-10-12 decision to draw every character, icon and scene as vectors instead of generating
-// images. Exposes window.Art.
+// shapes, soft glossy 3D shading). This is the final art, not a placeholder: research.md Revisions
+// records the 2026-10-12 decision to draw every character, icon and scene as vectors instead of
+// generating images. Exposes window.Art.
 //
 // Everything on screen is chosen from the recommendation state: the weather art from
 // weatherConditionIcon, the outfit drawing from the chosen outfit variation, and the face and
 // body from the character's builder traits.
+//
+// The 3D look is built from gradients: limbs and torsos are shaded like cylinders, heads and hands
+// like spheres, with light from the upper left, glossy highlights, and a contact shadow underfoot.
 
 (function () {
   let uidCounter = 0;
   const nextId = (prefix) => prefix + "-" + ++uidCounter; // unique SVG ids when several figures share a page
 
-  const INK = "#33283a"; // outline colour for everything drawn
+  const INK = "#33283a";
+  const OUTLINE = 'stroke="#2a1f33" stroke-opacity=".5" stroke-linejoin="round"'; // soft outline, not a hard black line
   const FACE_INK = "#2a2320";
   const SOFT = "rgba(0,0,0,.45)"; // nose and ear outlines that read on every skin tone
 
@@ -20,6 +24,45 @@
     const n = parseInt(hex.slice(1), 16);
     const channels = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(amount < 0 ? v * (1 + amount) : v + (255 - v) * amount));
     return "#" + channels.map((v) => v.toString(16).padStart(2, "0")).join("");
+  }
+
+  // --- Volume shading ---------------------------------------------------------------------------
+  // volumes() returns V(colour, kind), which gives a gradient fill for that colour and registers the
+  // gradient in `defs` (to go in the SVG's <defs>). Gradients use the shape's own bounding box, so
+  // every limb, torso and head is shaded on its own, lit from the upper left:
+  //   "cyl"    light on the left, base in the middle, dark on the right (limbs, torsos, clothes)
+  //   "sphere" a highlight toward the top left fading to a dark rim (heads, hands, hair)
+  //   "vert"   light at the top, darker at the bottom (clouds, ground)
+  function volumes() {
+    const defs = [];
+    const cache = {};
+    const stop = (offset, color) => '<stop offset="' + offset + '" stop-color="' + color + '"/>';
+    function V(color, kind) {
+      const k = kind || "cyl";
+      const key = k + color;
+      if (cache[key]) return "url(#" + cache[key] + ")";
+      const id = nextId("v");
+      cache[key] = id;
+      if (k === "sphere") {
+        defs.push('<radialGradient id="' + id + '" cx=".36" cy=".3" r=".85">' + stop(0, shade(color, 0.14)) + stop(0.45, color) + stop(1, shade(color, -0.26)) + "</radialGradient>");
+      } else if (k === "vert") {
+        defs.push('<linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">' + stop(0, shade(color, 0.12)) + stop(0.6, color) + stop(1, shade(color, -0.2)) + "</linearGradient>");
+      } else {
+        defs.push('<linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="0">' + stop(0, shade(color, 0.1)) + stop(0.3, shade(color, 0.2)) + stop(0.62, color) + stop(1, shade(color, -0.28)) + "</linearGradient>");
+      }
+      return "url(#" + id + ")";
+    }
+    // soft white highlight and soft dark contact shadow, shared by everything in one SVG
+    const shine = nextId("shine");
+    const shadow = nextId("shadow");
+    defs.push('<radialGradient id="' + shine + '"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>');
+    defs.push('<radialGradient id="' + shadow + '"><stop offset="0" stop-color="#1a1230" stop-opacity=".38"/><stop offset="1" stop-color="#1a1230" stop-opacity="0"/></radialGradient>');
+    return {
+      V: V,
+      defs: defs,
+      shineFill: "url(#" + shine + ")",
+      shadowFill: "url(#" + shadow + ")",
+    };
   }
 
   // --- Weather and reminder icons (24x24, stroke-based, original simple shapes) ---------------
@@ -87,27 +130,29 @@
   const weatherIcon = (key, options) => iconSvg(WEATHER_ICONS, key, options);
   const reminderIcon = (key, options) => iconSvg(REMINDER_ICONS, key, options);
 
-  // --- Sky art: the big weather picture in the corner of the scene (filled shapes, outlined) ---
-  // A "puffy" cloud is drawn as a union: the shapes once with a thick outline, then again flat on
+  // --- Sky art: the big weather picture (filled, shaded shapes) -----------------------------------
+  // A "puffy" cloud is drawn as a union: the shapes once with a thick outline, then again shaded on
   // top, so the outline follows the merged silhouette instead of crossing the inside.
-  function puffyCloud(x, y, scale, fill, outline) {
-    const shapes = '<circle cx="36" cy="52" r="16"/><circle cx="58" cy="38" r="22"/><circle cx="82" cy="50" r="17"/><rect x="26" y="50" width="68" height="20" rx="10"/>';
+  function puffyCloud(V, x, y, scale, fill) {
+    const shapes = (f) =>
+      '<circle cx="36" cy="52" r="16" fill="' + f + '"/><circle cx="58" cy="38" r="22" fill="' + f + '"/><circle cx="82" cy="50" r="17" fill="' + f + '"/><rect x="26" y="50" width="68" height="20" rx="10" fill="' + f + '"/>';
     return (
       '<g transform="translate(' + x + " " + y + ") scale(" + scale + ')">' +
-      '<g fill="' + outline + '" stroke="' + outline + '" stroke-width="7" stroke-linejoin="round">' + shapes + "</g>" +
-      '<g fill="' + fill + '">' + shapes + '</g><ellipse cx="50" cy="30" rx="12" ry="5" fill="#fff" opacity=".45"/></g>'
+      '<g stroke="' + INK + '" stroke-opacity=".7" stroke-width="7" stroke-linejoin="round">' + shapes(INK) + "</g>" +
+      shapes(V(fill, "sphere")) +
+      '<ellipse cx="46" cy="30" rx="13" ry="6" fill="#fff" opacity=".55"/></g>'
     );
   }
 
-  function sunShape(cx, cy, scale) {
+  function sunShape(V, cx, cy, scale) {
     const rays = Array.from({ length: 12 }, (_, k) =>
       '<rect x="' + (cx - 3.5 * scale) + '" y="' + (cy - 46 * scale) + '" width="' + 7 * scale + '" height="' + 13 * scale + '" rx="' + 3.5 * scale + '" transform="rotate(' + k * 30 + " " + cx + " " + cy + ')"/>'
     ).join("");
     return (
       '<circle cx="' + cx + '" cy="' + cy + '" r="' + 38 * scale + '" fill="#ffe9a0" opacity=".55"/>' +
       '<g fill="#ffbf2e" stroke="#d98f12" stroke-width="2" stroke-linejoin="round">' + rays + "</g>" +
-      '<circle cx="' + cx + '" cy="' + cy + '" r="' + 25 * scale + '" fill="#ffd23f" stroke="#d98f12" stroke-width="3"/>' +
-      '<ellipse cx="' + (cx - 8 * scale) + '" cy="' + (cy - 9 * scale) + '" rx="' + 9 * scale + '" ry="' + 5 * scale + '" fill="#fff" opacity=".5" transform="rotate(-30 ' + (cx - 8 * scale) + " " + (cy - 9 * scale) + ')"/>'
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + 25 * scale + '" fill="' + V("#ffd23f", "sphere") + '" stroke="#d98f12" stroke-width="2.4"/>' +
+      '<ellipse cx="' + (cx - 8 * scale) + '" cy="' + (cy - 10 * scale) + '" rx="' + 9 * scale + '" ry="' + 5 * scale + '" fill="#fff" opacity=".6" transform="rotate(-35 ' + (cx - 8 * scale) + " " + (cy - 10 * scale) + ')"/>'
     );
   }
 
@@ -115,24 +160,26 @@
   const FLAKE = (x, y) => '<circle cx="' + x + '" cy="' + y + '" r="4" fill="#fff" stroke="#8fb4d8" stroke-width="1.6"/>';
 
   const SKY_ART = {
-    clear: () => sunShape(80, 60, 1.05),
-    partly_cloudy: () => sunShape(60, 46, 0.78) + puffyCloud(40, 34, 1.0, "#ffffff", INK),
-    cloudy: () => puffyCloud(48, 6, 0.9, "#cfd8e2", INK) + puffyCloud(14, 24, 1.15, "#f4f7fb", INK),
-    rain: () => puffyCloud(16, 4, 1.25, "#aebccb", INK) + [30, 54, 78, 102, 126].map((x, i) => DROP(x, 92 + (i % 2) * 8)).join(""),
-    thunderstorm: () =>
-      puffyCloud(16, 2, 1.25, "#7a869c", INK) +
+    clear: (V) => sunShape(V, 80, 60, 1.05),
+    partly_cloudy: (V) => sunShape(V, 60, 46, 0.78) + puffyCloud(V, 40, 34, 1.0, "#ffffff"),
+    cloudy: (V) => puffyCloud(V, 48, 6, 0.9, "#cfd8e2") + puffyCloud(V, 14, 24, 1.15, "#f4f7fb"),
+    rain: (V) => puffyCloud(V, 16, 4, 1.25, "#aebccb") + [30, 54, 78, 102, 126].map((x, i) => DROP(x, 92 + (i % 2) * 8)).join(""),
+    thunderstorm: (V) =>
+      puffyCloud(V, 16, 2, 1.25, "#7a869c") +
       '<path d="M82 66l-14 24h12l-8 22 26-30H85l9-16z" fill="#ffd23f" stroke="#c98f00" stroke-width="2.4" stroke-linejoin="round"/>',
-    snow: () => puffyCloud(16, 2, 1.25, "#e9eff6", INK) + [34, 58, 82, 106, 130].map((x, i) => FLAKE(x, 96 + (i % 2) * 10)).join(""),
-    windy_fog: () =>
-      '<circle cx="104" cy="40" r="22" fill="#fff3c4" stroke="#e0c26a" stroke-width="2.4" opacity=".85"/>' +
-      '<g fill="#f6f8fa" stroke="' + INK + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+    snow: (V) => puffyCloud(V, 16, 2, 1.25, "#e9eff6") + [34, 58, 82, 106, 130].map((x, i) => FLAKE(x, 96 + (i % 2) * 10)).join(""),
+    windy_fog: (V) =>
+      '<circle cx="104" cy="40" r="22" fill="' + V("#fff3c4", "sphere") + '" stroke="#e0c26a" stroke-width="2.4" opacity=".85"/>' +
+      '<g fill="#f6f8fa" stroke="' + INK + '" stroke-opacity=".7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M18 46h86a9 9 0 0 1 0 18H70"/><path d="M50 70h80a9 9 0 0 1 0 18H30a9 9 0 0 1 0-18z"/>' +
       '<path d="M14 94h84a9 9 0 0 1 0 18H54"/></g>',
   };
 
   // Big weather picture, decorative (the condition is also written out as text next to it).
   function skyArt(icon) {
-    return '<svg class="sky-art" viewBox="0 0 160 120" width="150" height="112" aria-hidden="true">' + (SKY_ART[icon] || SKY_ART.clear)() + "</svg>";
+    const vol = volumes();
+    const body = (SKY_ART[icon] || SKY_ART.clear)(vol.V);
+    return '<svg class="sky-art" viewBox="0 0 160 120" width="150" height="112" aria-hidden="true"><defs>' + vol.defs.join("") + "</defs>" + body + "</svg>";
   }
 
   // --- Scene: city street whose sky and weather follow the condition ---------------------------
@@ -146,14 +193,14 @@
     windy_fog: ["#cbd5dc", "#edf0f2"],
   };
 
-  function building(b, fill, windowFill) {
+  function building(V, b, fill, windowFill) {
     const wins = [];
     for (let wy = b.y + 14; wy < b.y + b.h - 20; wy += 18) {
       for (let wx = b.x + 9; wx < b.x + b.w - 12; wx += 14) {
         wins.push('<rect x="' + wx + '" y="' + wy + '" width="7" height="9" rx="1.5"/>');
       }
     }
-    return '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" fill="' + fill + '"/><g fill="' + windowFill + '">' + wins.join("") + "</g>";
+    return '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" fill="' + V(fill, "cyl") + '"/><g fill="' + windowFill + '">' + wins.join("") + "</g>";
   }
 
   function weatherOverlay(icon) {
@@ -185,24 +232,30 @@
 
   function sceneSvg(icon) {
     const sky = SKY[icon] || SKY.clear;
+    const vol = volumes();
+    const V = vol.V;
     const gradient = nextId("sky");
     const back = [{ x: -12, y: 296, w: 72, h: 180 }, { x: 70, y: 350, w: 58, h: 126 }, { x: 226, y: 326, w: 62, h: 150 }, { x: 296, y: 270, w: 72, h: 206 }, { x: 358, y: 336, w: 60, h: 140 }];
     const front = [{ x: 14, y: 336, w: 64, h: 140 }, { x: 128, y: 386, w: 52, h: 90 }, { x: 246, y: 304, w: 52, h: 172 }, { x: 322, y: 372, w: 56, h: 104 }];
     const night = icon === "thunderstorm" ? 0.1 : 0;
+    // Build the shapes first: V() registers each gradient as it is used, so the <defs> must be
+    // written out only after every shape has been made.
+    const inner =
+      '<rect width="400" height="600" fill="url(#' + gradient + ')"/>' +
+      '<g stroke="' + INK + '" stroke-opacity=".3" stroke-width="1.5">' +
+      back.map((b) => building(V, b, shade("#9fb4c6", -night), "rgba(255,255,255,.5)")).join("") +
+      front.map((b) => building(V, b, shade("#8aa0b5", -night), "rgba(255,255,255,.42)")).join("") +
+      "</g>" +
+      // a tree (shaded canopy spheres) and a lamp post for depth
+      '<g stroke="' + INK + '" stroke-opacity=".35" stroke-width="1.5"><rect x="36" y="410" width="9" height="66" fill="' + V("#8a6a4a", "cyl") + '"/><circle cx="40" cy="398" r="26" fill="' + V("#6fa86a", "sphere") + '"/><circle cx="24" cy="414" r="17" fill="' + V("#7fb878", "sphere") + '"/><circle cx="57" cy="414" r="18" fill="' + V("#7fb878", "sphere") + '"/>' +
+      '<rect x="384" y="380" width="5" height="96" fill="' + V("#6b7480", "cyl") + '"/><circle cx="386" cy="376" r="8" fill="#ffe9a0"/></g>' +
+      '<rect y="470" width="400" height="130" fill="' + V("#b4bcc4", "vert") + '"/><rect y="470" width="400" height="7" fill="#9aa3ad"/>' +
+      '<g stroke="#9aa3ad" stroke-width="2">' + Array.from({ length: 9 }, (_, i) => '<path d="M' + (i * 52 - 10) + " 477l-" + 14 + ' 123"/>').join("") + "</g>" +
+      weatherOverlay(icon);
     return (
       '<svg class="scene-art" viewBox="0 0 400 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' +
-      '<defs><linearGradient id="' + gradient + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sky[0] + '"/><stop offset="1" stop-color="' + sky[1] + '"/></linearGradient></defs>' +
-      '<rect width="400" height="600" fill="url(#' + gradient + ')"/>' +
-      '<g stroke="' + INK + '" stroke-opacity=".35" stroke-width="1.5">' +
-      back.map((b) => building(b, shade("#9fb4c6", -night), "rgba(255,255,255,.5)")).join("") +
-      front.map((b) => building(b, shade("#8aa0b5", -night), "rgba(255,255,255,.42)")).join("") +
-      "</g>" +
-      // a tree and a lamp post for depth
-      '<g stroke="' + INK + '" stroke-opacity=".4" stroke-width="1.5"><rect x="36" y="410" width="9" height="66" fill="#8a6a4a"/><circle cx="40" cy="398" r="26" fill="#6fa86a"/><circle cx="24" cy="414" r="17" fill="#7fb878"/><circle cx="57" cy="414" r="18" fill="#7fb878"/>' +
-      '<rect x="384" y="380" width="5" height="96" fill="#6b7480"/><circle cx="386" cy="376" r="8" fill="#ffe9a0"/></g>' +
-      '<rect y="470" width="400" height="130" fill="#b4bcc4"/><rect y="470" width="400" height="7" fill="#9aa3ad"/>' +
-      '<g stroke="#9aa3ad" stroke-width="2">' + Array.from({ length: 9 }, (_, i) => '<path d="M' + (i * 52 - 10) + " 477l-" + 14 + ' 123"/>').join("") + "</g>" +
-      weatherOverlay(icon) +
+      '<defs><linearGradient id="' + gradient + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + sky[0] + '"/><stop offset="1" stop-color="' + sky[1] + '"/></linearGradient>' + vol.defs.join("") + "</defs>" +
+      inner +
       "</svg>"
     );
   }
@@ -247,22 +300,23 @@
 
   // --- Head parts, drawn in a 120-wide head space (centre 60,48, radius 24) and scaled up later ---
   // Hair is returned in two layers: `back` goes behind the body, `front` over the head.
-  function hairLayers(hair) {
+  function hairLayers(hair, V) {
     const color = hair.color;
-    const cap = '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + color + '"/>';
+    const fill = V(color, "sphere");
+    const cap = '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + fill + '"/>';
     const layers = {
       short: { back: "", front: cap },
-      long: { back: '<path d="M33 44h54v50q-27 9 -54 0z" fill="' + color + '"/>', front: cap },
+      long: { back: '<path d="M33 44h54v50q-27 9 -54 0z" fill="' + V(color, "cyl") + '"/>', front: cap },
       curly: {
         back: "",
         front:
-          '<g fill="' + color + '"><circle cx="38" cy="40" r="8"/><circle cx="48" cy="30" r="9"/><circle cx="60" cy="27" r="9"/><circle cx="72" cy="30" r="9"/><circle cx="82" cy="40" r="8"/></g>' + cap,
+          '<g fill="' + fill + '"><circle cx="38" cy="40" r="8"/><circle cx="48" cy="30" r="9"/><circle cx="60" cy="27" r="9"/><circle cx="72" cy="30" r="9"/><circle cx="82" cy="40" r="8"/></g>' + cap,
       },
-      spiky: { back: "", front: '<path d="M36 42L40 18l8 16 6 -18 6 17 6 -17 6 18 8 -16 4 24q-24 -10 -48 0z" fill="' + color + '"/>' },
-      bun: { back: "", front: cap + '<circle cx="60" cy="19" r="9" fill="' + color + '"/>' },
-      ponytail: { back: '<path d="M80 38q20 6 10 38q-8 -10 -14 -16z" fill="' + color + '"/>', front: cap },
+      spiky: { back: "", front: '<path d="M36 42L40 18l8 16 6 -18 6 17 6 -17 6 18 8 -16 4 24q-24 -10 -48 0z" fill="' + fill + '"/>' },
+      bun: { back: "", front: cap + '<circle cx="60" cy="19" r="9" fill="' + fill + '"/>' },
+      ponytail: { back: '<path d="M80 38q20 6 10 38q-8 -10 -14 -16z" fill="' + V(color, "cyl") + '"/>', front: cap },
       wavy: {
-        back: '<path d="M34 44q-8 18 0 36q8 -6 4 -20zM86 44q8 18 0 36q-8 -6 -4 -20z" fill="' + color + '"/>',
+        back: '<path d="M34 44q-8 18 0 36q8 -6 4 -20zM86 44q8 18 0 36q-8 -6 -4 -20z" fill="' + V(color, "cyl") + '"/>',
         front: cap,
       },
       bald: { back: "", front: "" },
@@ -270,27 +324,30 @@
     return layers[hair.style];
   }
 
-  function earsSvg(id, skin) {
+  function earsSvg(id, skinFill, V, skin) {
+    const f0 = V(skin, "sphere");
     const ear = (cx, flip) => {
       const f = flip ? -1 : 1;
       return {
-        round: '<circle cx="' + cx + '" cy="50" r="4.5" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
-        pointed: '<path d="M' + cx + " 54l" + 9 * f + " -14l" + -5 * f + ' 16z" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
-        big: '<ellipse cx="' + cx + '" cy="50" rx="5.5" ry="8" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
-        small: '<circle cx="' + cx + '" cy="50" r="2.8" fill="' + skin + '" stroke="' + SOFT + '" stroke-width="1"/>',
+        round: '<circle cx="' + cx + '" cy="50" r="4.5" fill="' + f0 + '" stroke="' + SOFT + '" stroke-width="1"/>',
+        pointed: '<path d="M' + cx + " 54l" + 9 * f + " -14l" + -5 * f + ' 16z" fill="' + f0 + '" stroke="' + SOFT + '" stroke-width="1"/>',
+        big: '<ellipse cx="' + cx + '" cy="50" rx="5.5" ry="8" fill="' + f0 + '" stroke="' + SOFT + '" stroke-width="1"/>',
+        small: '<circle cx="' + cx + '" cy="50" r="2.8" fill="' + f0 + '" stroke="' + SOFT + '" stroke-width="1"/>',
       }[id];
     };
     return ear(36, false) + ear(84, true);
   }
 
+  // Eyes get a small white highlight where they are round, which is what makes a face look glossy.
   function eyesSvg(id) {
+    const gleam = (cx, r) => '<circle cx="' + (cx + 1.1) + '" cy="46.8" r="' + r + '" fill="#fff" opacity=".9"/>';
     const eye = (cx) =>
       ({
-        round: '<circle cx="' + cx + '" cy="48" r="2.8" fill="' + FACE_INK + '"/>',
-        wide: '<circle cx="' + cx + '" cy="48" r="4.6" fill="#fff" stroke="' + FACE_INK + '" stroke-width="1.2"/><circle cx="' + cx + '" cy="48" r="2.2" fill="' + FACE_INK + '"/>',
+        round: '<circle cx="' + cx + '" cy="48" r="2.8" fill="' + FACE_INK + '"/>' + gleam(cx, 0.9),
+        wide: '<circle cx="' + cx + '" cy="48" r="4.6" fill="#fff" stroke="' + FACE_INK + '" stroke-width="1.2"/><circle cx="' + cx + '" cy="48" r="2.2" fill="' + FACE_INK + '"/>' + gleam(cx, 0.8),
         narrow: '<ellipse cx="' + cx + '" cy="48" rx="3.6" ry="1.5" fill="' + FACE_INK + '"/>',
         happy: '<path d="M' + (cx - 4) + ' 49q4 -5 8 0" stroke="' + FACE_INK + '" stroke-width="2.2" fill="none" stroke-linecap="round"/>',
-        large: '<circle cx="' + cx + '" cy="48" r="3.8" fill="' + FACE_INK + '"/>',
+        large: '<circle cx="' + cx + '" cy="48" r="3.8" fill="' + FACE_INK + '"/>' + gleam(cx, 1.2),
         sparkle: '<circle cx="' + cx + '" cy="48" r="3.4" fill="' + FACE_INK + '"/><circle cx="' + (cx + 1.2) + '" cy="46.8" r="1.1" fill="#fff"/>',
       }[id]);
     return eye(51) + eye(69);
@@ -346,19 +403,20 @@
   function characterSvg(look) {
     const character = Traits.normalize(look.character || { id: "?" });
     const outfit = OUTFIT_LOOK[look.outfitId] || OUTFIT_LOOK["mild-2"];
+    const { V, defs, shineFill, shadowFill } = volumes();
     const skin = Traits.skinColor(character);
     const skinDark = shade(skin, -0.12);
-    const hair = hairLayers(Traits.hairOf(character));
+    const hair = hairLayers(Traits.hairOf(character), V);
     const wide = BODY_WIDTH[character.bodyType] + (look.tag === "loose" ? 12 : 0);
     const longPants = outfit.pants === "long";
-    const shadeRight = (x, y, w, h, rx) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="' + rx + '" fill="rgba(20,10,40,.11)"/>';
+    const gleam = (cx, cy, rx, ry, rot, opacity) =>
+      '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + shineFill + '" stroke="none" opacity="' + (opacity || 1) + '"' + (rot ? ' transform="rotate(' + rot + " " + cx + " " + cy + ')"' : "") + "/>";
 
     // Geometry
     const shape = GENDER_SHAPE[character.genderPresentation];
     const baseW = 40 + wide;
     const torsoW = baseW + shape.shoulders; // shoulder width: the arms hang from here
     const torsoX = 60 - torsoW / 2;
-    const defs = [];
     const torsoTop = 75;
     const torsoH = outfit.coat ? 72 : 52;
     const legW = 14 + wide / 3.5;
@@ -371,35 +429,38 @@
 
     // legs: skin first (shows below shorts and under socks), then the pants over the top
     legXs.forEach((x, i) => {
-      body.push('<rect x="' + x + '" y="124" width="' + legW + '" height="64" rx="6" fill="' + skin + '"/>');
-      body.push('<rect x="' + x + '" y="124" width="' + legW + '" height="' + (pantsEnd - 124) + '" rx="6" fill="' + outfit.bottom + '"/>');
-      body.push(shadeRight(x + legW * 0.58, 124, legW * 0.42, pantsEnd - 124, 5));
-      if (outfit.socks) body.push('<rect x="' + x + '" y="170" width="' + legW + '" height="16" rx="5" fill="#f4f1ea"/><path d="M' + x + " 175h" + legW + "M" + x + " 180h" + legW + '" stroke="' + shade(outfit.accent, -0.2) + '" stroke-width="1.6" fill="none"/>');
-      if (outfit.cuffs && longPants) body.push('<rect x="' + x + '" y="' + (pantsEnd - 7) + '" width="' + legW + '" height="7" rx="3" fill="' + shade(outfit.bottom, -0.25) + '"/>');
-      if (outfit.stripe) body.push('<rect x="' + (i === 0 ? x + 1 : x + legW - 3.5) + '" y="126" width="2.6" height="' + (pantsEnd - 128) + '" fill="' + (outfit.accent === "#ffffff" ? "#ffffff" : "#ffffff") + '" opacity=".9"/>');
+      body.push('<rect x="' + x + '" y="124" width="' + legW + '" height="64" rx="6" fill="' + V(skin, "cyl") + '"/>');
+      body.push('<rect x="' + x + '" y="124" width="' + legW + '" height="' + (pantsEnd - 124) + '" rx="6" fill="' + V(outfit.bottom, "cyl") + '"/>');
+      if (outfit.socks) body.push('<rect x="' + x + '" y="170" width="' + legW + '" height="16" rx="5" fill="' + V("#f4f1ea", "cyl") + '"/><path d="M' + x + " 175h" + legW + "M" + x + " 180h" + legW + '" stroke="' + shade(outfit.accent, -0.2) + '" stroke-width="1.6" fill="none"/>');
+      if (outfit.cuffs && longPants) body.push('<rect x="' + x + '" y="' + (pantsEnd - 7) + '" width="' + legW + '" height="7" rx="3" fill="' + V(shade(outfit.bottom, -0.25), "cyl") + '"/>');
+      if (outfit.stripe) body.push('<rect x="' + (i === 0 ? x + 1 : x + legW - 3.5) + '" y="126" width="2.6" height="' + (pantsEnd - 128) + '" fill="#ffffff" opacity=".9"/>');
       if (outfit.pockets) body.push('<rect x="' + (i === 0 ? x + 1.5 : x + legW - 8) + '" y="136" width="6.5" height="9" rx="1.5" fill="' + shade(outfit.bottom, -0.15) + '" stroke="' + shade(outfit.bottom, -0.4) + '" stroke-width="1"/>');
-      if (!longPants) body.push('<rect x="' + x + '" y="' + (pantsEnd - 5) + '" width="' + legW + '" height="5" rx="2.5" fill="' + shade(outfit.bottom, -0.18) + '"/>');
+      if (!longPants) body.push('<rect x="' + x + '" y="' + (pantsEnd - 5) + '" width="' + legW + '" height="5" rx="2.5" fill="' + V(shade(outfit.bottom, -0.18), "cyl") + '"/>');
+      // soft highlight down the lit side of each leg
+      body.push(gleam(x + legW * 0.3, 140, legW * 0.14, 14, 0, 0.55));
     });
-    // shoes: sneakers with a white sole
+    // shadow where the legs meet, then the shoes: glossy sneakers with a white sole
+    body.push('<ellipse cx="60" cy="127" rx="8" ry="3.4" fill="rgba(20,10,40,.28)" stroke="none"/>');
     legXs.forEach((x) => {
-      body.push('<rect x="' + (x - 2) + '" y="183" width="' + (legW + 6) + '" height="12" rx="6" fill="#3b3b4a"/><rect x="' + (x - 2) + '" y="192" width="' + (legW + 6) + '" height="4" rx="2" fill="#f4f4f4"/>');
+      body.push('<rect x="' + (x - 2) + '" y="183" width="' + (legW + 6) + '" height="12" rx="6" fill="' + V("#3b3b4a", "cyl") + '"/><rect x="' + (x - 2) + '" y="192" width="' + (legW + 6) + '" height="4" rx="2" fill="#f4f4f4"/>');
+      body.push(gleam(x + 3.5, 186.5, 4, 2, -15, 0.9));
     });
 
-    // arms: skin, sleeve over the top, hand at the end
+    // arms: skin, sleeve over the top, a hand (sphere) at the end
     const sleeveEnd = { long: 119, short: 97, none: 0 }[outfit.sleeves];
     armXs.forEach((x) => {
-      body.push('<rect x="' + x + '" y="78" width="' + armW + '" height="46" rx="' + armW / 2 + '" fill="' + skin + '"/>');
+      body.push('<rect x="' + x + '" y="78" width="' + armW + '" height="46" rx="' + armW / 2 + '" fill="' + V(skin, "cyl") + '"/>');
       if (sleeveEnd) {
-        body.push('<rect x="' + x + '" y="78" width="' + armW + '" height="' + (sleeveEnd - 78) + '" rx="' + armW / 2.2 + '" fill="' + outfit.top + '"/>');
-        body.push(shadeRight(x + armW * 0.55, 78, armW * 0.45, sleeveEnd - 78, 3));
-        if (outfit.sleeves === "long") body.push('<rect x="' + x + '" y="' + (sleeveEnd - 6) + '" width="' + armW + '" height="6" rx="3" fill="' + shade(outfit.top, -0.22) + '"/>');
+        body.push('<rect x="' + x + '" y="78" width="' + armW + '" height="' + (sleeveEnd - 78) + '" rx="' + armW / 2.2 + '" fill="' + V(outfit.top, "cyl") + '"/>');
+        if (outfit.sleeves === "long") body.push('<rect x="' + x + '" y="' + (sleeveEnd - 6) + '" width="' + armW + '" height="6" rx="3" fill="' + V(shade(outfit.top, -0.22), "cyl") + '"/>');
       }
-      body.push('<circle cx="' + (x + armW / 2) + '" cy="125" r="' + (5.4 + armW / 14) + '" fill="' + skin + '"/>');
+      body.push(gleam(x + armW * 0.3, 92, armW * 0.14, 9, 0, 0.55));
+      body.push('<circle cx="' + (x + armW / 2) + '" cy="125" r="' + (5.4 + armW / 14) + '" fill="' + V(skin, "sphere") + '"/>');
     });
 
     // torso
     const topH = outfit.crop ? 30 : torsoH;
-    if (outfit.crop) body.push('<rect x="' + (torsoX + 2) + '" y="' + (torsoTop + 20) + '" width="' + (torsoW - 4) + '" height="34" rx="8" fill="' + skin + '"/>');
+    if (outfit.crop) body.push('<rect x="' + (torsoX + 2) + '" y="' + (torsoTop + 20) + '" width="' + (torsoW - 4) + '" height="34" rx="8" fill="' + V(skin, "cyl") + '"/>');
     // The torso is a path: shoulders, waist and hem widths follow the gender presentation.
     const waistW = baseW + shape.waist;
     const hemW = baseW + shape.hem;
@@ -417,16 +478,18 @@
       "Q" + (60 - torsoW / 2) + " " + t0 + " " + (60 - torsoW / 2 + 10) + " " + t0 + "Z";
     const clipId = nextId("torso");
     defs.push('<clipPath id="' + clipId + '"><path d="' + torsoPath + '"/></clipPath>');
-    body.push('<path d="' + torsoPath + '" fill="' + outfit.top + '"/>');
-    // shading, ribbed hem and quilting are clipped to the torso so they follow its shape
-    body.push('<g clip-path="url(#' + clipId + ')" stroke="none">' + shadeRight(60 + torsoW * 0.14, t0, torsoW, topH, 0));
+    body.push('<path d="' + torsoPath + '" fill="' + V(outfit.top, "cyl") + '"/>');
+    // ribbed hem, quilting, a soft chest highlight and a waist crease, clipped to the torso shape
+    body.push('<g clip-path="url(#' + clipId + ')" stroke="none">');
     if (outfit.rib) body.push('<rect x="0" y="' + (t1 - 6) + '" width="120" height="6" fill="' + shade(outfit.top, -0.22) + '"/>');
     if (outfit.coat === "puffer") {
       body.push('<path d="M0 ' + (t0 + 20) + "H120M0 " + (t0 + 40) + "H120M0 " + (t0 + 60) + 'H120" stroke="' + shade(outfit.top, -0.3) + '" stroke-width="1.6" fill="none"/>');
     }
+    body.push(gleam(60 - torsoW * 0.22, t0 + topH * 0.34, torsoW * 0.14, topH * 0.3, 0, 0.75));
+    body.push('<path d="M0 ' + (mid + 2) + "Q60 " + (mid + 6) + ' 120 ' + (mid + 2) + '" stroke="rgba(20,10,40,.16)" stroke-width="3" fill="none"/>');
     body.push("</g>");
     if (outfit.coat === "wool") {
-      body.push('<path d="M60 ' + torsoTop + "L46 " + (torsoTop + 4) + "L55 " + (torsoTop + 32) + 'z" fill="' + shade(outfit.top, 0.14) + '"/><path d="M60 ' + torsoTop + "L74 " + (torsoTop + 4) + "L65 " + (torsoTop + 32) + 'z" fill="' + shade(outfit.top, 0.14) + '"/>');
+      body.push('<path d="M60 ' + torsoTop + "L46 " + (torsoTop + 4) + "L55 " + (torsoTop + 32) + 'z" fill="' + V(shade(outfit.top, 0.14), "cyl") + '"/><path d="M60 ' + torsoTop + "L74 " + (torsoTop + 4) + "L65 " + (torsoTop + 32) + 'z" fill="' + V(shade(outfit.top, 0.14), "cyl") + '"/>');
       body.push('<path d="M60 ' + (torsoTop + 20) + "v" + (torsoH - 20) + '" stroke="' + shade(outfit.top, -0.35) + '" stroke-width="1.6"/>');
       [34, 46, 58].forEach((dy) => body.push('<circle cx="64.5" cy="' + (torsoTop + dy) + '" r="2" fill="' + shade(outfit.top, 0.35) + '"/>'));
     }
@@ -438,50 +501,55 @@
     }
     // neckline: tank tops and tees show skin at the chest; a hoodie shows its hood
     if (outfit.sleeves === "none" && !outfit.crop) {
-      body.push('<rect x="' + (torsoX + 9) + '" y="' + torsoTop + '" width="' + (torsoW - 18) + '" height="15" rx="7" fill="' + skin + '"/>');
+      body.push('<rect x="' + (torsoX + 9) + '" y="' + torsoTop + '" width="' + (torsoW - 18) + '" height="15" rx="7" fill="' + V(skin, "cyl") + '"/>');
     } else if (outfit.crop) {
       body.push('<path d="M50 ' + torsoTop + "q10 11 20 0z" + '" fill="' + skin + '"/>');
     } else if (!outfit.coat && !outfit.zip && !outfit.hood && !outfit.scarf) {
       body.push('<path d="M51 ' + (torsoTop - 1) + "q9 11 18 0z" + '" fill="' + skinDark + '"/>');
     }
     if (outfit.hood === "down") {
-      body.push('<path d="M43 ' + (torsoTop - 1) + "q17 18 34 0q5 11 -5 15h-24q-10 -4 -5 -15z" + '" fill="' + outfit.accent + '"/><path d="M55 ' + (torsoTop + 12) + "v12M65 " + (torsoTop + 12) + 'v12" stroke="#f4f1ea" stroke-width="1.8" stroke-linecap="round"/>');
+      body.push('<path d="M43 ' + (torsoTop - 1) + "q17 18 34 0q5 11 -5 15h-24q-10 -4 -5 -15z" + '" fill="' + V(outfit.accent, "cyl") + '"/><path d="M55 ' + (torsoTop + 12) + "v12M65 " + (torsoTop + 12) + 'v12" stroke="#f4f1ea" stroke-width="1.8" stroke-linecap="round"/>');
     }
     if (outfit.scarf) {
-      body.push('<rect x="' + (torsoX - 2) + '" y="69" width="' + (torsoW + 4) + '" height="13" rx="6" fill="' + outfit.accent + '"/><rect x="' + (torsoX + torsoW - 14) + '" y="76" width="9" height="22" rx="3.5" fill="' + shade(outfit.accent, -0.12) + '"/>');
+      body.push('<rect x="' + (torsoX - 2) + '" y="69" width="' + (torsoW + 4) + '" height="13" rx="6" fill="' + V(outfit.accent, "cyl") + '"/><rect x="' + (torsoX + torsoW - 14) + '" y="76" width="9" height="22" rx="3.5" fill="' + V(shade(outfit.accent, -0.12), "cyl") + '"/>');
     }
+    // a short neck, then the head casts a soft shadow on it and the chest
+    body.push('<rect x="53" y="62" width="14" height="18" rx="5" fill="' + V(skin, "cyl") + '"/>');
+    body.push('<ellipse cx="60" cy="73" rx="14" ry="5" fill="rgba(20,10,40,.2)" stroke="none"/>');
 
     // hood up goes behind the head
-    const hoodBack = outfit.hood === "up" ? '<circle cx="60" cy="42" r="35" fill="' + outfit.top + '"/>' : "";
+    const hoodBack = outfit.hood === "up" ? '<circle cx="60" cy="42" r="35" fill="' + V(outfit.top, "sphere") + '"/>' : "";
 
-    // head group: scaled-up head space
+    // head group: scaled-up head space; the head is a shaded sphere with a glossy highlight
     const head = [];
-    head.push('<g stroke="' + INK + '" stroke-width="1.25" stroke-linejoin="round">' + earsSvg(character.ear, skin) + '<circle cx="60" cy="48" r="24" fill="' + skin + '"/>' + hair.front + "</g>");
-    head.push('<ellipse cx="47" cy="34" rx="7" ry="3.6" fill="#fff" opacity=".22" transform="rotate(-28 47 34)"/>');
+    head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round">' + earsSvg(character.ear, null, V, skin) + '<circle cx="60" cy="48" r="24" fill="' + V(skin, "sphere") + '"/>' + hair.front + "</g>");
+    if (hair.front) head.push('<path d="M40 33q10 -9 24 -8" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" fill="none" stroke-linecap="round"/>');
+    head.push(gleam(45, 36, 7, 4.5, -28, 0.5));
     head.push(noseSvg(character.nose), eyesSvg(character.eyes), mouthSvg(character.mouth), expressionSvg(character.personality, skin));
-    if (outfit.glasses) head.push('<rect x="42" y="43" width="36" height="10" rx="4.5" fill="#1d1d1d" opacity=".88"/>');
+    if (outfit.glasses) head.push('<rect x="42" y="43" width="36" height="10" rx="4.5" fill="#1d1d1d" opacity=".88"/><rect x="45" y="44.5" width="12" height="2.4" rx="1.2" fill="#fff" opacity=".35"/>');
     // accessories only when the outfit's name mentions them (the test keeps name and drawing in sync)
-    if (outfit.cap) head.push('<g stroke="' + INK + '" stroke-width="1.2" stroke-linejoin="round"><path d="M34 40a26 22 0 0 1 52 0z" fill="' + outfit.accent + '"/><rect x="58" y="36" width="40" height="7" rx="3.5" fill="' + shade(outfit.accent, -0.15) + '"/></g>');
-    if (outfit.sunHat) head.push('<g stroke="' + INK + '" stroke-width="1.2" stroke-linejoin="round"><ellipse cx="60" cy="31" rx="40" ry="7" fill="' + outfit.accent + '"/><path d="M40 31a20 16 0 0 1 40 0z" fill="' + shade(outfit.accent, 0.15) + '"/><rect x="40" y="26" width="40" height="5" fill="#c9553d"/></g>');
-    if (outfit.beanie) head.push('<g stroke="' + INK + '" stroke-width="1.2" stroke-linejoin="round"><path d="M35 38a25 24 0 0 1 50 0z" fill="' + outfit.accent + '"/><rect x="34" y="35" width="52" height="7" rx="3" fill="' + shade(outfit.accent, -0.2) + '"/><circle cx="60" cy="14" r="5" fill="' + shade(outfit.accent, 0.2) + '"/></g>');
+    if (outfit.cap) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M34 40a26 22 0 0 1 52 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="58" y="36" width="40" height="7" rx="3.5" fill="' + V(shade(outfit.accent, -0.15), "vert") + '"/></g>' + gleam(50, 28, 8, 3.5, -20, 0.7));
+    if (outfit.sunHat) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><ellipse cx="60" cy="31" rx="40" ry="7" fill="' + V(outfit.accent, "vert") + '"/><path d="M40 31a20 16 0 0 1 40 0z" fill="' + V(shade(outfit.accent, 0.15), "sphere") + '"/><rect x="40" y="26" width="40" height="5" fill="#c9553d"/></g>');
+    if (outfit.beanie) head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round"><path d="M35 38a25 24 0 0 1 50 0z" fill="' + V(outfit.accent, "sphere") + '"/><rect x="34" y="35" width="52" height="7" rx="3" fill="' + V(shade(outfit.accent, -0.2), "vert") + '"/><circle cx="60" cy="14" r="5" fill="' + V(shade(outfit.accent, 0.2), "sphere") + '"/></g>' + gleam(48, 26, 8, 4, -20, 0.6));
     const hoodRim = outfit.hood === "up"
-      ? '<path d="M25 50A35 35 0 0 1 95 50L88 50A28 28 0 0 0 32 50Z" fill="' + outfit.top + '" stroke="' + INK + '" stroke-width="1.4" stroke-linejoin="round"/>'
+      ? '<path d="M25 50A35 35 0 0 1 95 50L88 50A28 28 0 0 0 32 50Z" fill="' + V(outfit.top, "sphere") + '" stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>'
       : "";
 
-    const outlined = '<g stroke="' + INK + '" stroke-width="1.6" stroke-linejoin="round">' + body.join("") + "</g>";
+    const outlined = "<g " + OUTLINE + ' stroke-width="1.3">' + body.join("") + "</g>";
     const parts =
-      '<g stroke="' + INK + '" stroke-width="1.4" stroke-linejoin="round">' + hair.back + "</g>" +
+      (look.view === "head" ? "" : '<ellipse cx="60" cy="195" rx="38" ry="5" fill="' + shadowFill + '"/>') + // contact shadow on the ground
+      "<g " + OUTLINE + ' stroke-width="1.2">' + hair.back + "</g>" +
       outlined +
-      (hoodBack ? '<g stroke="' + INK + '" stroke-width="1.6">' + hoodBack + "</g>" : "") +
+      (hoodBack ? "<g " + OUTLINE + ' stroke-width="1.3">' + hoodBack + "</g>" : "") +
       '<g transform="' + HEAD_TRANSFORM + '">' + head.join("") + "</g>" +
-      (hoodRim ? '<g transform="translate(0 0)">' + hoodRim + "</g>" : "");
+      hoodRim;
 
     // "head" frames just the head and hair (builder face tabs, gallery thumbnails); no fixed size:
     // CSS scales the figure to the room available, anchored to the ground.
     const viewBox = look.view === "head" ? "18 -2 84 84" : "0 0 " + FIGURE_WIDTH + " " + FIGURE_HEIGHT;
     const aspect = look.view === "head" ? "xMidYMid meet" : "xMidYMax meet";
     const a11y = look.decorative ? 'aria-hidden="true"' : 'role="img" aria-label="' + look.alt + '"';
-    return '<svg class="character-art" viewBox="' + viewBox + '" preserveAspectRatio="' + aspect + '" ' + a11y + ">" + (defs.length ? "<defs>" + defs.join("") + "</defs>" : "") + parts + "</svg>";
+    return '<svg class="character-art" viewBox="' + viewBox + '" preserveAspectRatio="' + aspect + '" ' + a11y + "><defs>" + defs.join("") + "</defs>" + parts + "</svg>";
   }
 
   window.Art = {
