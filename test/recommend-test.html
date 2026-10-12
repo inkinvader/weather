@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Recommend tests</title></head>
+<body>
+<pre id="out">running...</pre>
+<script src="../js/recommend.js"></script>
+<script>
+  // Known-value checks for js/recommend.js. Heat index / wind chill expectations come from the
+  // NWS charts and an independent Python transcription of NOAA's published equation.
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+  const near = (actual, expected, tol) => actual !== null && Math.abs(actual - expected) <= tol;
+  // A plain day with nothing triggering; tests override one field at a time.
+  const day = (over) => Object.assign(
+    { temperatureF: 68, humidity: 50, windMph: 0, precipProbability: 0, uvIndex: 0, weatherCode: 0, isToday: true }, over);
+
+  // --- Temperature categories: every band edge, both sides, plus decimals and extremes ---
+  const bands = [
+    [-5, "freezing"], [31, "freezing"], [31.4, "freezing"],
+    [31.5, "cold"], [32, "cold"], [45, "cold"], [45.4, "cold"],
+    [45.5, "cool"], [46, "cool"], [60, "cool"], [60.4, "cool"],
+    [60.5, "mild"], [61, "mild"], [74, "mild"], [74.4, "mild"],
+    [74.5, "warm"], [75, "warm"], [80, "warm"], [80.4, "warm"],
+    [80.5, "hot"], [81, "hot"], [89, "hot"], [89.4, "hot"],
+    [89.5, "extreme_heat"], [90, "extreme_heat"], [115, "extreme_heat"],
+  ];
+  bands.forEach(([t, want]) => check("category " + t + "F -> " + want, Recommend.categoryFor(t) === want, Recommend.categoryFor(t)));
+
+  // --- Heat index (F, tolerance 1 degree against chart / reference values) ---
+  [[80, 40, 80], [90, 50, 95], [90, 70, 106], [100, 50, 118], [88.3, 76, 105], [70, 50, 69]].forEach(([t, rh, want]) => {
+    const got = Recommend.heatIndexF(t, rh);
+    check("heat index " + t + "F/" + rh + "% ~ " + want, near(got, want, 1), got.toFixed(1));
+  });
+
+  // --- Wind chill (F, tolerance 1 degree against NWS chart) ---
+  [[0, 15, -19], [20, 10, 9], [30, 10, 21], [40, 10, 34]].forEach(([t, w, want]) => {
+    const got = Recommend.windChillF(t, w);
+    check("wind chill " + t + "F/" + w + "mph ~ " + want, near(got, want, 1), got && got.toFixed(1));
+  });
+  check("wind chill n/a above 50F", Recommend.windChillF(55, 15) === null);
+  check("wind chill n/a under 3 mph", Recommend.windChillF(30, 2.9) === null);
+  check("wind chill applies at exactly 50F / 3mph", Recommend.windChillF(50, 3) !== null);
+
+  // --- Reminder thresholds: just below and at/above each trigger ---
+  const has = (d, r) => Recommend.activeReminders(d).includes(r);
+  check("sunscreen off at UV 2.9", !has(day({ uvIndex: 2.9 }), "sunscreen"));
+  check("sunscreen on at UV 3", has(day({ uvIndex: 3 }), "sunscreen"));
+  check("umbrella off at 39%", !has(day({ precipProbability: 39 }), "umbrella"));
+  check("umbrella on at 40%", has(day({ precipProbability: 40 }), "umbrella"));
+  check("hydration off at 85F/50% (HI ~86)", !has(day({ temperatureF: 85, humidity: 50 }), "hydration"));
+  check("hydration on at 90F/50% (HI ~95)", has(day({ temperatureF: 90, humidity: 50 }), "hydration"));
+  check("hydration on at 88.3F/76% (HI ~105, hot-and-humid)", has(day({ temperatureF: 88.3, humidity: 76 }), "hydration"));
+  check("cold caution on at 20F/10mph (chill 9)", has(day({ temperatureF: 20, windMph: 10 }), "cold_caution"));
+  check("cold caution off at 20F/0mph (calm)", !has(day({ temperatureF: 20, windMph: 0 }), "cold_caution"));
+  check("cold caution off at 40F/3mph (drop <5F)", !has(day({ temperatureF: 40, windMph: 3 }), "cold_caution"));
+  check("cold caution off at 55F/20mph (formula n/a)", !has(day({ temperatureF: 55, windMph: 20 }), "cold_caution"));
+  check("mild calm dry day -> no reminders", Recommend.activeReminders(day({ temperatureF: 68, uvIndex: 1 })).length === 0);
+  const multi = Recommend.activeReminders(day({ temperatureF: 92, humidity: 60, uvIndex: 8, precipProbability: 70 }));
+  check("independent: hot+sunny+rainy -> sunscreen, umbrella, hydration", multi.length === 3 && ["sunscreen", "umbrella", "hydration"].every((r) => multi.includes(r)), multi.join(","));
+
+  // --- Icons: one representative code per icon, plus group edges ---
+  const icons = [[0, "clear"], [1, "clear"], [2, "partly_cloudy"], [3, "cloudy"], [45, "windy_fog"], [48, "windy_fog"],
+    [51, "rain"], [65, "rain"], [81, "rain"], [71, "snow"], [86, "snow"], [95, "thunderstorm"], [99, "thunderstorm"], [999, "cloudy"]];
+  icons.forEach(([code, want]) => check("icon code " + code + " -> " + want, Recommend.iconFor(code) === want, Recommend.iconFor(code)));
+
+  // --- Combined state shape used by later checkpoints ---
+  const state = Recommend.evaluate(day({ temperatureF: 88.3, humidity: 76, uvIndex: 4.9, precipProbability: 19, weatherCode: 1, isToday: true }));
+  check("evaluate(today, 88.3F humid sunny)",
+    state.outfitCategory === "hot" && state.weatherConditionIcon === "clear" && state.isForecast === false &&
+    state.activeReminders.join() === "sunscreen,hydration", JSON.stringify(state));
+  check("evaluate marks future day as forecast", Recommend.evaluate(day({ isToday: false })).isForecast === true);
+
+  lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+  document.getElementById("out").textContent = lines.join("\n");
+  document.title = failed ? "FAILED" : "PASSED";
+</script>
+</body>
+</html>
