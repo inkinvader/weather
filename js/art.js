@@ -510,6 +510,9 @@
   };
   const DEFAULT_HOOD = "classic";
 
+  // Where the scarf's top edge sits: around the neck, which spans y 62-80 (it is 13 tall, so it wraps the lower neck).
+  const SCARF_Y = 70;
+
   // The figure's drawing area: 120 wide, 200 tall. The head is large (Mii-style proportions).
   // (it starts 14 above the head's old top edge, so tall hair such as spikes is never cut off)
   const FIGURE_WIDTH = 120;
@@ -639,9 +642,9 @@
     } else if (!outfit.coat && !outfit.zip && !outfit.hood && !outfit.scarf) {
       body.push('<path d="M51 ' + (torsoTop - 1) + "q9 11 18 0z" + '" fill="' + skinDark + '"/>');
     }
-    // The scarf goes around the neck. Under a hood it is drawn after the hood, and a little lower,
-    // so it stays visible and does not cover the chin.
-    const scarfY = hoodUp ? 88 : 69;
+    // The scarf is wrapped around the neck (the neck spans y 62-80). Under a hood it is drawn after the hood,
+    // so it sits over the two ends of the hood where they meet at the neck.
+    const scarfY = SCARF_Y;
     const scarfSvg = outfit.scarf
       ? '<rect x="' + (torsoX - 2) + '" y="' + scarfY + '" width="' + (torsoW + 4) + '" height="13" rx="6" fill="' + V(outfit.accent, "cyl") + '"/><rect x="' + (torsoX + torsoW - 14) + '" y="' + (scarfY + 7) + '" width="9" height="22" rx="3.5" fill="' + V(shade(outfit.accent, -0.12), "cyl") + '"/>'
       : "";
@@ -706,7 +709,7 @@
   }
 
   window.Art = {
-    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOODS, FACIAL_SHAPES, HAIRLINE,
+    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOODS, SCARF_Y, FACIAL_SHAPES, HAIRLINE,
     weatherIcon, reminderIcon, skyArt, sceneSvg, characterSvg,
   };
 })();

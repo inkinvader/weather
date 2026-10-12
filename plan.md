@@ -138,6 +138,8 @@ Record material plan changes and why they were made.
 
 - **2026-10-12, hood sides curve in to the neck (the Developer drew over a screenshot: the two sides of the hood curving inward from the cheeks down to the sides of the neck, with the roll across the middle crossed out):** All three hoods were reshaped so each side of the band curves inward from the cheeks and tapers to a point at the side of the neck, where the two ends nearly meet. The collar roll across the middle of the neck was removed. The drawstrings now hang from the neck ends, and the back of the hood still fills the windows beside the head. Tests: the ends of every hood meet at the neck (the gap between them is no wider than the neck plus its outline), and no roll is drawn across the neck. 117 main-screen, 65 builder, 50 picker and 34 store checks pass. Not yet confirmed by the Developer.
 
+- **2026-10-12, scarf moved up to the neck (the Developer circled the neck on a screenshot and pointed the scarf at it):** the scarf had been placed down on the chest (top edge at y=88, below the neck, which spans y 62-80) to keep it clear of the chin. It now wraps the neck (top edge at y=70, 13 tall), drawn over the two ends of the hood where they meet. A test checks that the scarf's top edge lies within the neck and that it covers the neck's base. 118 main-screen checks pass. Not yet confirmed by the Developer.
+
 ## Saving transcripts
 
 At the end of planning, ask the Developer to enter `save transcript`. When directed, save the complete conversation as `transcripts/plan-YYYY-MM-DD_HHMMSS.md`, label chat messages `Developer` and `Agent`, and confirm the saved path.
