@@ -67,20 +67,34 @@
   // --- Personality weighting: neutral uniform, others skew toward favored tags ---
   const neutral = outfitShares("mild", "neutral");
   check("neutral mild ~ uniform (1/3 each, +/-3%)", ["mild-1", "mild-2", "mild-3"].every((id) => near(neutral[id], 1 / 3, 0.03)), JSON.stringify(neutral));
-  // energetic favors sporty + bold; mild-1 sporty, mild-2 relaxed, mild-3 bold -> 3/7, 1/7, 3/7
-  const energetic = outfitShares("mild", "energetic");
-  check("energetic mild ~ 43% sporty / 14% relaxed / 43% bold (+/-3%)",
-    near(energetic["mild-1"], 3 / 7, 0.03) && near(energetic["mild-2"], 1 / 7, 0.03) && near(energetic["mild-3"], 3 / 7, 0.03), JSON.stringify(energetic));
-  // anxious favors sharp + relaxed; freezing-1 relaxed, -2 sharp, -3 bold -> 3/7, 3/7, 1/7
-  const anxious = outfitShares("freezing", "anxious");
-  check("anxious freezing ~ 43% relaxed / 43% sharp / 14% bold (+/-3%)",
-    near(anxious["freezing-1"], 3 / 7, 0.03) && near(anxious["freezing-2"], 3 / 7, 0.03) && near(anxious["freezing-3"], 1 / 7, 0.03), JSON.stringify(anxious));
-  // only one favored tag present in this category -> 3/5, 1/5, 1/5
-  const energeticCold = outfitShares("cold", "energetic"); // cold-2 sporty is the only match
-  check("energetic cold ~ 60% sporty / 20% / 20% (+/-3%)",
-    near(energeticCold["cold-2"], 0.6, 0.03) && near(energeticCold["cold-1"], 0.2, 0.03) && near(energeticCold["cold-3"], 0.2, 0.03), JSON.stringify(energeticCold));
-  const grumpyMild = outfitShares("mild", "grumpy"); // relaxed + bold favored
-  check("grumpy skews away from sporty in mild (sporty ~14%, +/-3%)", near(grumpyMild["mild-1"], 1 / 7, 0.03), JSON.stringify(grumpyMild));
+  // One favored tag per personality -> favored style 3/5 = 60%, the other two 1/5 = 20% each.
+  const expectShares = (shares, favoredId, others) =>
+    near(shares[favoredId], 0.6, 0.03) && others.every((id) => near(shares[id], 0.2, 0.03));
+  const energetic = outfitShares("mild", "energetic"); // mild-1 is sporty
+  check("energetic mild ~ 60% sporty / 20% / 20% (+/-3%)", expectShares(energetic, "mild-1", ["mild-2", "mild-3"]), JSON.stringify(energetic));
+  const anxious = outfitShares("freezing", "anxious"); // freezing-1 is covered
+  check("anxious freezing ~ 60% covered / 20% / 20% (+/-3%)", expectShares(anxious, "freezing-1", ["freezing-2", "freezing-3"]), JSON.stringify(anxious));
+  const grumpy = outfitShares("cool", "grumpy"); // cool-2 is dark
+  check("grumpy cool ~ 60% dark / 20% / 20% (+/-3%)", expectShares(grumpy, "cool-2", ["cool-1", "cool-3"]), JSON.stringify(grumpy));
+  const chill = outfitShares("warm", "chill"); // warm-3 is loose
+  check("chill warm ~ 60% loose / 20% / 20% (+/-3%)", expectShares(chill, "warm-3", ["warm-1", "warm-2"]), JSON.stringify(chill));
+  // When a personality's tag is left out of a category, odds are even there.
+  const grumpyMild = outfitShares("mild", "grumpy"); // no dark style in mild
+  check("grumpy in mild (dark left out) ~ even thirds (+/-3%)", ["mild-1", "mild-2", "mild-3"].every((id) => near(grumpyMild[id], 1 / 3, 0.03)), JSON.stringify(grumpyMild));
+  const chillHot = outfitShares("hot", "chill"); // no loose style in hot
+  check("chill in hot (loose left out) ~ even thirds (+/-3%)", ["hot-1", "hot-2", "hot-3"].every((id) => near(chillHot[id], 1 / 3, 0.03)), JSON.stringify(chillHot));
+
+  // --- Tag structure (approved 2026-10-12): one tag each, none shared, rotated left-outs ---
+  const favoredLists = Object.entries(V.PERSONALITY_FAVORED_TAGS);
+  check("each non-neutral personality favors exactly one tag; neutral none",
+    favoredLists.every(([p, tags]) => (p === "neutral" ? tags.length === 0 : tags.length === 1)));
+  const favoredTags = favoredLists.flatMap(([, tags]) => tags);
+  check("no two personalities share a tag", new Set(favoredTags).size === favoredTags.length, favoredTags.join(","));
+  check("every category has 3 styles with 3 distinct tags, all from the four known tags",
+    cats.every((c) => { const t = V.OUTFIT_VARIATIONS[c].map((v) => v.tag); return t.length === 3 && new Set(t).size === 3 && t.every((x) => favoredTags.includes(x)); }));
+  check("each personality's tag appears in at least 5 of the 7 categories",
+    favoredTags.every((tag) => cats.filter((c) => V.OUTFIT_VARIATIONS[c].some((v) => v.tag === tag)).length >= 5),
+    favoredTags.map((tag) => tag + ":" + cats.filter((c) => V.OUTFIT_VARIATIONS[c].some((v) => v.tag === tag)).length).join(" "));
   check("unfavored styles still appear for every personality (>5% share)",
     personalities.every((p) => Object.values(outfitShares("mild", p)).every((share) => share > 0.05)));
   check("unknown personality behaves like neutral (no crash, uniform weights)", V.outfitWeights("mild", "mystery").every((w) => w === 1));

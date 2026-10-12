@@ -8,52 +8,58 @@
   // Unmatched variations weigh 1, so nothing ever has zero chance (approved 2026-10-12: 3:1).
   const FAVORED_WEIGHT = 3;
 
-  // Personality only nudges the odds; it never selects an outfit. Neutral favors nothing (uniform).
+  // Personality only nudges the odds; it never selects an outfit. Each personality favors exactly one
+  // clothing tag and no two personalities share one (approved 2026-10-12). Neutral favors nothing.
+  //   sporty  = athletic gear, caps, joggers          covered = extra layers, hood up, scarf, sun hat
+  //   dark    = all black/gray, plain, no color       loose   = baggy, slouchy, oversized
+  // A category with 3 styles leaves one tag out; a personality whose tag is absent there gets even odds.
   const PERSONALITY_FAVORED_TAGS = {
-    energetic: ["sporty", "bold"],
-    anxious: ["sharp", "relaxed"],
-    grumpy: ["relaxed", "bold"],
-    chill: ["relaxed", "sporty"],
+    energetic: ["sporty"],
+    anxious: ["covered"],
+    grumpy: ["dark"],
+    chill: ["loose"],
     neutral: [],
   };
 
   // 3 outfit styles per temperature category. The `id` is what gets cached and later maps to art
   // (category + id + body type + gender presentation); names are placeholders until the art exists.
   const OUTFIT_VARIATIONS = {
+    // Left out per category (rotated so each tag is missing from at most 2 of the 7):
+    // freezing: sporty | cold: loose | cool: covered | mild: dark | warm: sporty | hot: loose | extreme_heat: covered
     freezing: [
-      { id: "freezing-1", tag: "relaxed", name: "Oversized puffer and beanie" },
-      { id: "freezing-2", tag: "sharp", name: "Long wool coat and scarf" },
-      { id: "freezing-3", tag: "bold", name: "Bright parka and fuzzy hat" },
+      { id: "freezing-1", tag: "covered", name: "Puffer with hood up and thick scarf" },
+      { id: "freezing-2", tag: "dark", name: "Black wool coat and beanie" },
+      { id: "freezing-3", tag: "loose", name: "Oversized parka and slouchy socks" },
     ],
     cold: [
-      { id: "cold-1", tag: "relaxed", name: "Hoodie under a winter coat" },
-      { id: "cold-2", tag: "sporty", name: "Athletic jacket and joggers" },
-      { id: "cold-3", tag: "sharp", name: "Peacoat and jeans" },
+      { id: "cold-1", tag: "sporty", name: "Track jacket over a hoodie, with joggers" },
+      { id: "cold-2", tag: "covered", name: "Hoodie under a zipped coat and scarf" },
+      { id: "cold-3", tag: "dark", name: "Black peacoat and gray jeans" },
     ],
     cool: [
-      { id: "cool-1", tag: "sharp", name: "Fitted sweater and jacket" },
-      { id: "cool-2", tag: "relaxed", name: "Sweatshirt and sweats" },
-      { id: "cool-3", tag: "bold", name: "Ripped jeans and cropped jacket" },
+      { id: "cool-1", tag: "sporty", name: "Windbreaker and leggings" },
+      { id: "cool-2", tag: "dark", name: "Gray sweater and black jeans" },
+      { id: "cool-3", tag: "loose", name: "Baggy sweatshirt and sweats" },
     ],
     mild: [
       { id: "mild-1", tag: "sporty", name: "Tee, joggers and ball cap" },
-      { id: "mild-2", tag: "relaxed", name: "Loose tee, light jacket and jeans" },
-      { id: "mild-3", tag: "bold", name: "Patterned shirt and bucket hat" },
+      { id: "mild-2", tag: "covered", name: "Zipped light jacket, long sleeves and jeans" },
+      { id: "mild-3", tag: "loose", name: "Oversized tee and baggy jeans" },
     ],
     warm: [
-      { id: "warm-1", tag: "sporty", name: "Tank and athletic shorts" },
-      { id: "warm-2", tag: "relaxed", name: "Loose tee and cargo shorts" },
-      { id: "warm-3", tag: "sharp", name: "Polo and light pants" },
+      { id: "warm-1", tag: "covered", name: "Long-sleeve sun shirt and sun hat" },
+      { id: "warm-2", tag: "dark", name: "Black tee and shorts" },
+      { id: "warm-3", tag: "loose", name: "Loose tee and cargo shorts" },
     ],
     hot: [
       { id: "hot-1", tag: "sporty", name: "Breathable tee and running shorts" },
-      { id: "hot-2", tag: "bold", name: "Bright tee and bucket hat" },
-      { id: "hot-3", tag: "relaxed", name: "Loose tank and shorts" },
+      { id: "hot-2", tag: "covered", name: "Light long sleeves, sun hat and sunglasses" },
+      { id: "hot-3", tag: "dark", name: "Black tank and gray shorts" },
     ],
     extreme_heat: [
       { id: "extreme_heat-1", tag: "sporty", name: "Moisture-wicking tank and shorts" },
-      { id: "extreme_heat-2", tag: "relaxed", name: "Loose linen top and shorts" },
-      { id: "extreme_heat-3", tag: "bold", name: "Sun hat and vacation shirt" },
+      { id: "extreme_heat-2", tag: "dark", name: "Dark tank and shorts" },
+      { id: "extreme_heat-3", tag: "loose", name: "Loose linen top and shorts" },
     ],
   };
 
