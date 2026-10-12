@@ -22,6 +22,7 @@
   <script src="../js/art.js"></script>
   <script src="../js/app.js"></script>
   <script src="../js/builder.js"></script>
+  <script src="../js/settings.js"></script>
   <script>
     (async () => {
       const params = new URLSearchParams(location.search);
@@ -42,6 +43,12 @@
         root.querySelector("#city-input").value = "Austin";
         root.querySelector("form.search").requestSubmit();
         await wait();
+      }
+      // Settings: ?screen=settings &row=3 (0 data, 1 privacy, 2 help, 3 about) &scroll=600
+      if (params.get("screen") === "settings") {
+        root.querySelector('[data-action="nav-settings"]').click();
+        if (params.get("row")) root.querySelectorAll(".row")[Number(params.get("row"))].click();
+        if (params.get("scroll")) root.querySelector(".s-body").scrollTop = Number(params.get("scroll"));
       }
       // Character builder: ?screen=character &tab=hair &pick=spiky-blond &sheet=gallery
       if (params.get("screen") === "character") {

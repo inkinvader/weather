@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings tests</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    html, body { height: auto; }
+    pre#out { margin: 0; padding: 8px; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+<pre id="out">running...</pre>
+<script src="../js/weather.js"></script>
+<script src="../js/recommend.js"></script>
+<script src="../js/variation.js"></script>
+<script src="../js/traits.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/app.js"></script>
+<script src="../js/builder.js"></script>
+<script src="../js/settings.js"></script>
+<script>
+  // Drives the real Settings screen and About page with clicks, and checks every required topic is present.
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+  const $ = (root, sel) => root.querySelector(sel);
+  const $$ = (root, sel) => Array.from(root.querySelectorAll(sel));
+  const text = (root, sel) => ($(root, sel) ? $(root, sel).textContent.trim() : null);
+  const rect = (el) => el.getBoundingClientRect();
+  const settle = async () => { for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0)); };
+  const austin = { name: "Austin", state: "Texas", latitude: 30.26715, longitude: -97.74306 };
+
+  WeatherApi.fetchWeather = async () => ({ days: Array.from({ length: 15 }, (_, i) => ({
+    date: "2026-10-" + String(12 + i).padStart(2, "0"), isToday: i === 0, temperatureF: 70, highF: 70, lowF: 55,
+    precipProbability: 5, uvIndex: 1, windMph: 4, humidity: 50, weatherCode: 2 })) });
+
+  function mount(width) {
+    const el = document.createElement("div");
+    el.style.cssText = "width:" + (width || 390) + "px;height:700px;position:absolute;left:-5000px;top:0";
+    document.body.appendChild(el);
+    return el;
+  }
+
+  (async () => {
+    AppStore.clearAll();
+    AppStore.setLocation(austin);
+    const root = mount();
+    await App.start(root);
+    check("home nav has an enabled Settings tab", Boolean($(root, '[data-action="nav-settings"]')) && !$(root, '[data-action="nav-settings"]').disabled);
+    $(root, '[data-action="nav-settings"]').click();
+
+    // ---------------- list ----------------
+    check("Settings opens: title 'Settings', nav marks Settings as current", text(root, "h1") === "Settings" && $(root, '.tab[aria-current="page"]').textContent.trim() === "Settings");
+    const rows = $$(root, ".row").map((r) => r.querySelector(".row-label").textContent.trim());
+    check("list rows: Saved data, Privacy, Help, About (no Profile, Account or Log out: there are no accounts)", rows.join() === "Saved data,Privacy,Help,About" && !/Profile|Account|Log out/.test(root.textContent), rows.join());
+    check("every row is at least 44px tall and inside the frame", $$(root, ".row").every((r) => rect(r).height >= 44 && rect(r).left >= rect(root).left && rect(r).right <= rect(root).right + 0.5));
+
+    // ---------------- About: the five required topics ----------------
+    $$(root, ".row")[3].click();
+    check("About page opens with its own title, focus moves to the heading, and a Back button appears",
+      text(root, "h1") === "About" && document.activeElement === $(root, "#settings-title") && Boolean($(root, '[data-action="settings-back"]')));
+    const headings = $$(root, ".doc h2").map((h) => h.textContent.trim());
+    check("About has the five required topics: creator, weather data source, recommendation methods, privacy, art credits",
+      ["Creator", "Weather data", "How recommendations work", "Privacy", "Art credits"].every((h) => headings.includes(h)), headings.join(" | "));
+    const about = $(root, ".doc").textContent;
+    check("creator is named (" + Settings.CREATOR + ") and the project is described as a non-commercial class project", about.includes(Settings.CREATOR) && /non-commercial class project/i.test(about));
+    check("weather data source: Open-Meteo, linked, with its CC BY 4.0 license linked",
+      Boolean($(root, '.doc a[href="https://open-meteo.com/"]')) && Boolean($(root, '.doc a[href="https://creativecommons.org/licenses/by/4.0/"]')) && /CC BY 4\.0/.test(about));
+    const T = Recommend.THRESHOLDS;
+    check("methodology states every threshold the code actually uses (read from the code, so it cannot drift)",
+      about.includes("UV Index is " + T.sunscreenUvMin) && about.includes(T.umbrellaPrecipMin + "%") && about.includes("heat index is " + T.heatIndexMinF) &&
+      about.includes(T.windChillMaxTempF + "°F or colder") && about.includes(T.windChillMinWindMph + " mph") && about.includes(T.windChillMinDropF + "°F below"),
+      JSON.stringify(T));
+    const bandRows = $$(root, ".doc-table tbody tr").map((r) => r.textContent.replace(/\s+/g, " ").trim());
+    check("the temperature table has all 7 categories with the approved ranges",
+      bandRows.length === 7 && bandRows[0].includes("Freezing") && bandRows[0].includes("Below 32") && bandRows[1].includes("32 to 45") && bandRows[2].includes("46 to 60") && bandRows[3].includes("61 to 74") &&
+      bandRows[4].includes("75 to 80") && bandRows[5].includes("81 to 89") && bandRows[6].includes("90°F and up"), bandRows.join(" / "));
+    check("the table is an accessible table: caption, column headers, row headers",
+      Boolean($(root, ".doc-table caption")) && $$(root, '.doc-table th[scope="col"]').length === 2 && $$(root, '.doc-table th[scope="row"]').length === 7);
+    check("methodology cites its sources with links: EPA UV index, NOAA heat index, NWS wind chill",
+      Boolean($(root, '.doc a[href*="epa.gov"]')) && Boolean($(root, '.doc a[href*="noaa.gov"]')) && Boolean($(root, '.doc a[href*="weather.gov"]')));
+    check("methodology explains the seeded randomness and that personality only nudges odds", /seed/i.test(about) && /nudges/i.test(about));
+    check("methodology is honest about the one choice that is the app's own (the wind chill drop size)", /own choice/i.test(about));
+    check("privacy section: stored only on this device, only the latest place, never sent beyond Open-Meteo, never tracking",
+      /only on this device/i.test(about) && /most recent place/i.test(about) && /never sent to anyone except/i.test(about) && /never used for tracking/i.test(about));
+    check("privacy section: location only on tap, no background watching, no accounts or analytics", /only when you tap/i.test(about) && /background/i.test(about) && /no accounts/i.test(about) && /no analytics/i.test(about));
+    check("art credits: original vector artwork drawn in code, Wii-era inspiration is not an official license, class project, no third-party assets",
+      /original vector artwork/i.test(about) && /Wii-era/i.test(about) && /not an official license/i.test(about) && /not distributed beyond/i.test(about) && /No third-party/i.test(about));
+    check("every external link opens in a new tab safely (rel=noopener)", $$(root, ".doc a").every((a) => a.target === "_blank" && /noopener/.test(a.rel)), $$(root, ".doc a").length + " links");
+    check("headings are real h2s inside labelled sections (screen readers can jump between topics)", $$(root, ".doc section[aria-labelledby]").length === 5);
+    check("the page scrolls (it is longer than the screen) and nothing overflows sideways", $(root, ".s-body").scrollHeight > $(root, ".s-body").clientHeight && $(root, ".s-body").scrollWidth <= $(root, ".s-body").clientWidth + 1);
+
+    // ---------------- Back, Privacy, Help ----------------
+    $(root, '[data-action="settings-back"]').click();
+    check("Back returns to the list with focus on the About row", text(root, "h1") === "Settings" && document.activeElement.dataset.view === "about");
+    $$(root, ".row")[1].click();
+    check("Privacy page: heading and the same privacy statements", text(root, "h1") === "Privacy" && /only on this device/i.test($(root, ".doc").textContent) && /Saved data/.test($(root, ".doc").textContent));
+    $(root, '[data-action="settings-back"]').click();
+    $$(root, ".row")[2].click();
+    check("Help page: explains home, the date controls, the location, and the main character", text(root, "h1") === "Help" && ["Home", "date", "place", "main character"].every((w) => $(root, ".doc").textContent.includes(w)));
+    $(root, '[data-action="settings-back"]').click();
+
+    // ---------------- Saved data ----------------
+    $$(root, ".row")[0].click();
+    check("Saved data shows the saved place and the number of characters", text(root, "#data-location").includes("Austin, Texas") && text(root, "#data-characters").includes("1"));
+    AppStore.saveCharacters([{ id: "a", personality: "chill" }, { id: "b", personality: "grumpy" }, { id: "c", personality: "neutral" }]);
+    AppStore.setMainCharacterId("b");
+    $(root, '[data-action="settings-back"]').click();
+    $$(root, ".row")[0].click();
+    check("character count follows the saved characters (3)", text(root, "#data-characters").includes("3"));
+    $(root, '[data-action="reset-characters"]').click();
+    check("Reset my characters asks for a second tap and changes nothing yet", text(root, '[data-action="reset-characters"]').startsWith("Tap again") && AppStore.getCharacters().length === 3);
+    $(root, '[data-action="reset-characters"]').click();
+    check("second tap resets to ONE default neutral character and clears the main choice",
+      AppStore.getCharacters().length === 1 && AppStore.getCharacters()[0].personality === "neutral" && AppStore.getMainCharacterId() === "char-1" && !localStorage.getItem("weatherfit.v1.main") && text(root, "#data-characters").includes("1"));
+    check("the change is announced for screen readers", text(root, "#s-status").includes("reset"), text(root, "#s-status"));
+    check("resetting characters leaves the saved location alone", AppStore.getLocation() && AppStore.getLocation().name === "Austin");
+    $(root, '[data-action="forget-location"]').click();
+    check("Forget my location asks for a second tap too", text(root, '[data-action="forget-location"]').startsWith("Tap again") && AppStore.getLocation() !== null);
+    $(root, '[data-action="forget-location"]').click();
+    check("second tap forgets the location: nothing about Austin remains in storage",
+      AppStore.getLocation() === null && !JSON.stringify(Object.entries(localStorage)).includes("30.26") && text(root, "#data-location").includes("none") && $(root, '[data-action="forget-location"]').disabled);
+    // navigating away cancels a half-finished confirmation
+    $(root, '[data-action="reset-characters"]').click();
+    $(root, '[data-action="settings-back"]').click();
+    $$(root, ".row")[0].click();
+    check("leaving the page cancels a half-finished confirmation", text(root, '[data-action="reset-characters"]').startsWith("Reset my characters"));
+
+    // ---------------- Navigation between the three tabs ----------------
+    $(root, '[data-action="nav-home"]').click();
+    await settle();
+    check("Home after forgetting the location asks for a new one (location picker opens, no stale weather)",
+      text(root, "#sheet-title") === "Choose a location" && !$(root, ".temp"));
+    $(root, '[data-action="close-sheet"]').click();
+    $(root, '[data-action="nav-settings"]').click();
+    check("Settings is reachable again from the home screen", text(root, "h1") === "Settings");
+    $(root, '[data-action="nav-character"]').click();
+    check("Character tab works from Settings: the builder opens and Settings is gone", Boolean($(root, ".builder")) && !$(root, ".settings"));
+    $(root, '[data-action="nav-settings"]').click();
+    check("Settings tab works from the builder", text(root, "h1") === "Settings" && !$(root, ".builder"));
+    check("on the Settings screen the builder's controls are dead (it does not react to Settings clicks)", Builder.isActive() === false && Settings.isActive() === true);
+
+    // ---------------- Keeps a place across tabs (no forgetting) ----------------
+    AppStore.setLocation(austin);
+    const root2 = mount();
+    await App.start(root2);
+    $(root2, '[data-action="nav-settings"]').click();
+    $(root2, '[data-action="nav-home"]').click();
+    await settle();
+    check("opening Settings and going Home keeps the same place and weather", text(root2, ".place") === "Austin, TX" && text(root2, ".temp") === "70°F");
+
+    // ---------------- Narrow phone ----------------
+    const narrow = mount(320);
+    await App.start(narrow);
+    $(narrow, '[data-action="nav-settings"]').click();
+    $$(narrow, ".row")[3].click();
+    check("320px phone: the About page does not overflow sideways", $(narrow, ".s-body").scrollWidth <= $(narrow, ".s-body").clientWidth + 1 && $(narrow, ".screen").scrollWidth <= $(narrow, ".screen").clientWidth + 1);
+    check("320px phone: every control on the page is at least 44px", $$(narrow, "button").every((b) => rect(b).height >= 44 - 0.5 && rect(b).width >= 44 - 0.5));
+
+    AppStore.clearAll();
+    lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+    document.getElementById("out").textContent = lines.join("\n");
+    document.title = failed ? "FAILED" : "PASSED";
+  })().catch((e) => {
+    document.getElementById("out").textContent = lines.join("\n") + "\nCRASH: " + e + "\n" + (e.stack || "");
+    document.title = "FAILED";
+  });
+</script>
+</body>
+</html>

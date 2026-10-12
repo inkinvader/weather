@@ -797,3 +797,166 @@ button {
 .options-tall .opt-art {
   height: 124px;
 }
+
+/* --- Settings screen (list of rows, each opening a page) --- */
+.settings {
+  background: linear-gradient(#f2f6fb, #e2ecf6);
+}
+
+.s-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 2px solid var(--line);
+}
+
+.s-title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.s-title:focus {
+  outline: none;
+}
+
+.back-btn {
+  min-height: 44px;
+  padding: 6px 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+}
+
+.s-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 14px;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+}
+
+.row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.row-hint {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.row-chev {
+  font-size: 1.6rem;
+  color: var(--ink-soft);
+}
+
+.doc {
+  padding: 14px;
+  line-height: 1.5;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+}
+
+.doc h2 {
+  margin: 18px 0 4px;
+  font-size: 1.1rem;
+}
+
+.doc h2:first-child {
+  margin-top: 0;
+}
+
+.doc p {
+  margin: 4px 0 8px;
+}
+
+.doc ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.doc li {
+  margin-bottom: 6px;
+}
+
+.doc a {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.doc section + section {
+  margin-top: 8px;
+  padding-top: 4px;
+  border-top: 1px solid #c9d4de;
+}
+
+.doc-table {
+  width: 100%;
+  margin: 6px 0 10px;
+  border-collapse: collapse;
+}
+
+.doc-table caption {
+  margin-bottom: 4px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.doc-table th,
+.doc-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border: 1px solid #b9c6d2;
+}
+
+.doc-table thead th {
+  background: #eef3f8;
+}
+
+.doc-status {
+  margin: 12px 0 6px;
+}
+
+.doc-note {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.doc .btn + .doc-status {
+  margin-top: 16px;
+}

@@ -101,5 +101,14 @@
     };
   }
 
-  window.Recommend = { categoryFor, heatIndexF, windChillF, activeReminders, iconFor, evaluate };
+  const THRESHOLDS = {
+    sunscreenUvMin: SUNSCREEN_UV_MIN,
+    umbrellaPrecipMin: UMBRELLA_PRECIP_MIN,
+    heatIndexMinF: HEAT_INDEX_MIN_F,
+    windChillMaxTempF: WIND_CHILL_MAX_TEMP_F,
+    windChillMinWindMph: WIND_CHILL_MIN_WIND_MPH,
+    windChillMinDropF: WIND_CHILL_MIN_DROP_F,
+  };
+
+  window.Recommend = { categoryFor, heatIndexF, windChillF, activeReminders, iconFor, evaluate, TEMPERATURE_BANDS, THRESHOLDS };
 })();

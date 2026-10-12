@@ -287,6 +287,7 @@
   }
 
   function show() {
+    if (window.Settings) window.Settings.hide();
     state.active = true;
     state.selectedId = AppStore.getMainCharacterId();
     state.sheet = false;

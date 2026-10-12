@@ -94,7 +94,7 @@
       '<nav class="tabbar" aria-label="Main">' +
       tab("home", "nav-home", "Home", svg('<path d="M4 11l8-7 8 7v9H4z"/>', 'stroke-linejoin="round"')) +
       tab("character", "nav-character", "Character", svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>')) +
-      tab("settings", null, "Settings", svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>', 'stroke-linecap="round"'), true) +
+      tab("settings", "nav-settings", "Settings", svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>', 'stroke-linecap="round"')) +
       "</nav>"
     );
   }
@@ -265,7 +265,15 @@
 
     // Home tab (from the character builder): characters may have changed, so redraw from storage.
     function goHome() {
-      window.Builder.hide();
+      if (window.Builder) window.Builder.hide();
+      if (window.Settings) window.Settings.hide();
+      // Settings may have forgotten the place while we were away: then ask for a new one.
+      if (!AppStore.getLocation() && state.weather) {
+        state.weather = null;
+        state.location = null;
+        showNoLocation();
+        return openSheet("location");
+      }
       if (state.weather) showMain();
       else showNoLocation();
     }
@@ -385,8 +393,13 @@
         case "nav-character":
           closeSheet(false);
           state.searchId++; // anything pending from a picker is now stale
+          if (window.Settings) window.Settings.hide();
           return window.Builder.show();
-        case "nav-home": return window.Builder && window.Builder.isActive() ? goHome() : undefined;
+        case "nav-settings":
+          closeSheet(false);
+          state.searchId++;
+          return window.Settings.show();
+        case "nav-home": return (window.Builder && window.Builder.isActive()) || (window.Settings && window.Settings.isActive()) ? goHome() : undefined;
       }
     });
 
@@ -415,6 +428,7 @@
     });
 
     if (window.Builder) window.Builder.attach(root); // the Character tab; it has its own handlers
+    if (window.Settings) window.Settings.attach(root); // the Settings tab, likewise
 
     // First screen: the saved place if there is one, otherwise the location picker straight away.
     const saved = AppStore.getLocation();

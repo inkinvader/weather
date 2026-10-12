@@ -173,6 +173,16 @@
     return state;
   }
 
+  // Settings: forget the saved place (and its cache), leaving characters alone.
+  function forgetLocation() {
+    [KEY_LOCATION, KEY_CACHE].forEach(removeRaw);
+  }
+
+  // Settings: back to one default character (the cache is keyed by character, so it goes too).
+  function resetCharacters() {
+    [KEY_CHARACTERS, KEY_MAIN, KEY_CACHE].forEach(removeRaw);
+  }
+
   // Settings "reset": forget everything this app saved.
   function clearAll() {
     [KEY_LOCATION, KEY_CHARACTERS, KEY_MAIN, KEY_CACHE].forEach(removeRaw);
@@ -192,6 +202,8 @@
     setCachedState,
     pruneCache,
     resolveWithCache,
+    forgetLocation,
+    resetCharacters,
     clearAll,
   };
 })();
