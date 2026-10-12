@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Main screen tests</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Harness only: html/body/#app are 100% tall in the real page, so give each phone a fixed frame. */
+    html, body { height: auto; background: #777; }
+    #cases { display: flex; gap: 16px; align-items: flex-start; padding: 8px; }
+    .case { width: 390px; height: 700px; position: relative; background: #fff; flex: none; }
+    .label { color: #fff; font: 12px monospace; margin: 0 0 2px; }
+    pre#out { margin: 0; padding: 8px; background: #fff; font-size: 13px; }
+    /* Hidden views must stay laid out (visibility, not display:none) or every measurement reads 0. */
+    body[data-view="results"] #cases { visibility: hidden; position: absolute; top: 0; }
+    body[data-view="cases"] pre#out { display: none; }
+  </style>
+</head>
+<body>
+<pre id="out">running...</pre>
+<div id="cases"></div>
+<script src="../js/weather.js"></script>
+<script src="../js/recommend.js"></script>
+<script src="../js/variation.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  // Renders canned weather through the real App.render, then checks what is actually in the DOM.
+  document.body.dataset.view = new URLSearchParams(location.search).get("view") || "";
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+
+  const austin = { name: "Austin", state: "Texas", latitude: 30.26715, longitude: -97.74306 };
+  const base = { temperatureF: 68, highF: 68, lowF: 55, precipProbability: 5, uvIndex: 1, windMph: 4, humidity: 50, weatherCode: 2 };
+  // 15 plain days starting 2026-10-12; `over` patches individual days by index.
+  function makeDays(over) {
+    return Array.from({ length: 15 }, (_, i) =>
+      Object.assign({ date: "2026-10-" + String(12 + i).padStart(2, "0"), isToday: i === 0 }, base, (over && over[i]) || {}));
+  }
+  const char = (id, personality) => ({ id: id, personality: personality });
+
+  const cases = [
+    { id: "hot", title: "Hot, humid, sunny - today - 1 character",
+      days: makeDays({ 0: { temperatureF: 88.3, humidity: 76, precipProbability: 19, uvIndex: 4.9, windMph: 6, weatherCode: 1 } }),
+      dayIndex: 0, chars: [char("c1", "chill")] },
+    { id: "freeze", title: "Snowy freezing forecast - day +3 - 2 characters",
+      days: makeDays({ 3: { temperatureF: 28, highF: 28, humidity: 60, precipProbability: 10, windMph: 15, weatherCode: 71 } }),
+      dayIndex: 3, chars: [char("c1", "grumpy"), char("c2", "anxious")] },
+    { id: "rain", title: "Rainy mild - today - 5 characters",
+      days: makeDays({ 0: { temperatureF: 64, humidity: 80, precipProbability: 70, weatherCode: 61 } }),
+      dayIndex: 0, chars: [char("c1", "energetic"), char("c2", "anxious"), char("c3", "grumpy"), char("c4", "chill"), char("c5", "neutral")] },
+    { id: "calm", title: "Calm mild day - today - no reminders",
+      days: makeDays({}), dayIndex: 0, chars: [char("c1", "neutral")] },
+  ];
+
+  AppStore.clearAll();
+  const cont = document.getElementById("cases");
+  const frames = {};
+  cases.forEach((c) => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = '<p class="label">' + c.title + '</p><div class="case"></div>';
+    cont.appendChild(wrap);
+    frames[c.id] = wrap.querySelector(".case");
+    App.render(frames[c.id], { location: austin, days: c.days, dayIndex: c.dayIndex, characters: c.chars });
+  });
+  // First-run state (no saved location), rendered as a fifth frame.
+  const noLoc = document.createElement("div");
+  noLoc.innerHTML = '<p class="label">First run - no saved location</p><div class="case"></div>';
+  cont.appendChild(noLoc);
+  App.renderNoLocation(noLoc.querySelector(".case"));
+
+  const $ = (root, sel) => root.querySelector(sel);
+  const $$ = (root, sel) => Array.from(root.querySelectorAll(sel));
+  const text = (root, sel) => ($(root, sel) ? $(root, sel).textContent.trim() : null);
+  const rect = (el) => el.getBoundingClientRect();
+
+  // --- Case: hot, humid, sunny, today ---
+  let f = frames.hot;
+  check("hot/today: shows 88F with the degree symbol and unit", text(f, ".temp") === "88°F", text(f, ".temp"));
+  check("hot/today: condition text is Sunny", text(f, ".cond") === "Sunny", text(f, ".cond"));
+  check("hot/today: no Forecast badge, no 'High' prefix", !$(f, ".badge") && !text(f, ".temp").startsWith("High"));
+  check("hot/today: date reads Mon, Oct 12", text(f, ".date") === "Mon, Oct 12", text(f, ".date"));
+  check("hot/today: location reads Austin, TX", text(f, ".place") === "Austin, TX", text(f, ".place"));
+  check("hot/today: reminders are sunscreen + hydration only (from UV 4.9, heat index ~105; rain 19%)",
+    $$(f, ".reminders li").map((li) => li.dataset.reminder).join() === "sunscreen,hydration");
+  check("hot/today: reminder text is one of the defined wordings",
+    $$(f, ".reminders li").every((li) => Variation.REMINDER_WORDINGS[li.dataset.reminder].includes(li.textContent.trim())));
+  check("hot/today: 1 character, outfit is a 'hot' variation", $$(f, ".character").length === 1 && $(f, ".character").dataset.outfit.startsWith("hot-"), $(f, ".character").dataset.outfit);
+  check("hot/today: data source credit with Open-Meteo link", $(f, '.source a[href="https://open-meteo.com/"]') !== null);
+
+  // --- Case: snowy freezing forecast, day +3 ---
+  f = frames.freeze;
+  check("freeze/forecast: shows 'High 28°F'", text(f, ".temp") === "High 28°F", text(f, ".temp"));
+  check("freeze/forecast: Forecast badge present", text(f, ".badge") === "Forecast");
+  check("freeze/forecast: date reads Thu, Oct 15", text(f, ".date").startsWith("Thu, Oct 15"), text(f, ".date"));
+  check("freeze/forecast: condition text is Snow", text(f, ".cond") === "Snow");
+  check("freeze/forecast: cold caution shown (28F with 15 mph wind), no sunscreen/umbrella/hydration",
+    $$(f, ".reminders li").map((li) => li.dataset.reminder).join() === "cold_caution");
+  check("freeze/forecast: 2 characters, both in a 'freezing' outfit", $$(f, ".character").length === 2 && $$(f, ".character").every((c) => c.dataset.outfit.startsWith("freezing-")));
+
+  // --- Case: rainy mild, 5 characters ---
+  f = frames.rain;
+  check("rain/today: condition text is Rain", text(f, ".cond") === "Rain");
+  check("rain/today: umbrella is the only reminder", $$(f, ".reminders li").map((li) => li.dataset.reminder).join() === "umbrella");
+  check("rain/today: 5 characters shown side by side", $$(f, ".character").length === 5);
+  const figs = $$(f, ".character").map((c) => rect(c));
+  check("rain/today: the 5 characters sit in one row without overlapping each other",
+    figs.every((r, i) => i === 0 || r.left >= figs[i - 1].right - 0.5) && figs.every((r) => Math.abs(r.bottom - figs[0].bottom) < 2),
+    figs.map((r) => Math.round(r.width)).join("/") + " px wide");
+  check("rain/today: all 5 stay inside the 390px phone frame", figs.every((r) => r.left >= rect(f).left - 0.5 && r.right <= rect(f).right + 0.5));
+
+  // --- Case: calm day ---
+  f = frames.calm;
+  check("calm/today: no reminder block at all when nothing triggers", $(f, ".reminders") === null);
+  check("calm/today: condition text is Partly cloudy", text(f, ".cond") === "Partly cloudy");
+
+  // --- One state drives everything (every case) ---
+  cases.forEach((c) => {
+    const root = frames[c.id];
+    const day = c.days[c.dayIndex];
+    const evaluation = Recommend.evaluate(day);
+    const state = AppStore.resolveWithCache(evaluation, austin, day.date, c.chars[0]);
+    const label = Art.WEATHER_ICONS[state.weatherConditionIcon].label;
+    check(c.id + ": big scene icon, condition text and state icon all agree (" + state.weatherConditionIcon + ")",
+      $(root, ".sky-icon").dataset.icon === state.weatherConditionIcon && text(root, ".cond") === label);
+    check(c.id + ": every caption is the exact outfit named by that character's state",
+      $$(root, ".character").every((el, i) => {
+        const s = AppStore.resolveWithCache(evaluation, austin, day.date, c.chars[i]);
+        const v = Object.values(Variation.OUTFIT_VARIATIONS).flat().find((x) => x.id === s.outfitVariation);
+        return el.dataset.outfit === s.outfitVariation && el.querySelector("figcaption").textContent === v.name &&
+          el.querySelector("svg").getAttribute("aria-label").includes(v.name.toLowerCase());
+      }));
+  });
+
+  // --- Layout: text block never covers the characters; controls are big enough ---
+  cases.forEach((c) => {
+    const root = frames[c.id];
+    const summaryBottom = rect($(root, ".summary")).bottom;
+    const topOfArt = Math.min(...$$(root, ".character-art").map((a) => rect(a).top));
+    check(c.id + ": weather text ends above the characters (" + Math.round(summaryBottom) + " <= " + Math.round(topOfArt) + ")", summaryBottom <= topOfArt + 0.5);
+    check(c.id + ": Date and Location buttons are at least 44x44",
+      $$(root, ".ctl").length === 2 && $$(root, ".ctl").every((b) => rect(b).width >= 44 && rect(b).height >= 44));
+    check(c.id + ": bottom nav has Home, Character, Settings, each at least 44 tall",
+      $$(root, ".tab").map((t) => t.textContent.trim()).join() === "Home,Character,Settings" && $$(root, ".tab").every((t) => rect(t).height >= 44));
+    check(c.id + ": every role=img SVG has a label", $$(root, 'svg[role="img"]').every((s) => s.getAttribute("aria-label")));
+  });
+
+  // --- Drawing matches the written outfit name (guards against name/art drift) ---
+  const allOutfits = Object.values(Variation.OUTFIT_VARIATIONS).flat();
+  check("every outfit id has a placeholder drawing spec", allOutfits.every((v) => Art.OUTFIT_LOOK[v.id]), allOutfits.length + " outfits");
+  const nameRules = [
+    [/tank|crop top/i, "sleeves", "none"],
+    [/\btee\b|polo/i, "sleeves", "short"],
+    [/long.sleeve|sweater|jacket|coat|parka|puffer|hoodie|sweatshirt|windbreaker/i, "sleeves", "long"],
+    [/shorts/i, "pants", "short"],
+    [/jeans|pants|joggers|leggings|sweats/i, "pants", "long"],
+  ];
+  const mismatches = [];
+  allOutfits.forEach((v) => {
+    const look = Art.OUTFIT_LOOK[v.id] || {};
+    nameRules.forEach(([pattern, field, want]) => {
+      if (pattern.test(v.name) && look[field] !== want) mismatches.push(v.id + ' "' + v.name + '": ' + field + " is " + look[field] + ", name implies " + want);
+    });
+    if (/coat|parka|puffer/i.test(v.name) && !look.coat) mismatches.push(v.id + ": name has a coat but drawing has none");
+    // Accessories must match in BOTH directions: drawn if and only if the name mentions them.
+    [["cap", /\bcap\b/i], ["sunHat", /sun hat/i], ["beanie", /beanie/i], ["scarf", /scarf/i], ["glasses", /sunglasses/i]].forEach(([flag, pattern]) => {
+      if (pattern.test(v.name) !== Boolean(look[flag])) mismatches.push(v.id + ' "' + v.name + '": ' + flag + " is " + Boolean(look[flag]) + " but the name says " + pattern.test(v.name));
+    });
+  });
+  check("each outfit's drawing (sleeves, pants, coat, hats, scarf, sunglasses) agrees with its written name", mismatches.length === 0, mismatches.join(" | "));
+  const rendered = frames.hot.querySelector(".character-art").outerHTML;
+  check("hot-day figure shows its outfit: hot-2 'light long sleeves, sun hat, sunglasses' draws sleeves and a hat and glasses",
+    $(frames.hot, ".character").dataset.outfit !== "hot-2" || (rendered.includes("#d8c08a") && rendered.includes('fill="#1d1d1d"')));
+
+  // --- First run ---
+  const nf = noLoc.querySelector(".case");
+  check("first run: prompt to choose a location, no characters, no reminders", text(nf, ".place").startsWith("Choose a location") && $$(nf, ".character").length === 0);
+
+  // --- Loading and error text via start() with stubbed fetches ---
+  (async () => {
+    AppStore.setLocation(austin);
+    const realFetch = WeatherApi.fetchWeather;
+    const root = document.createElement("div");
+
+    let release;
+    WeatherApi.fetchWeather = () => new Promise((resolve) => { release = resolve; });
+    const started = App.start(root);
+    check("start(): shows 'Loading' while the weather is on its way", text(root, "p") === "Loading", text(root, "p"));
+    release({ days: makeDays({}) });
+    await started;
+    check("start(): replaces Loading with the weather screen once data arrives", $(root, ".temp") !== null && text(root, ".temp") === "68°F", text(root, ".temp"));
+
+    const E = WeatherApi.WeatherApiError;
+    for (const [code, want] of [["network", "Error. Reload the page."], ["service", "Error. Reload the page."], ["missing", "Missing data, try again in a moment."]]) {
+      WeatherApi.fetchWeather = () => Promise.reject(new E(code, "x"));
+      await App.start(root);
+      check("start(): " + code + " error -> '" + want + "'", text(root, "p") === want, text(root, "p"));
+    }
+    WeatherApi.fetchWeather = realFetch;
+
+    AppStore.clearAll();
+    const empty = document.createElement("div");
+    await App.start(empty);
+    check("start(): no saved location -> choose-a-location screen (no fetch)", text(empty, ".place").startsWith("Choose a location"));
+
+    lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+    document.getElementById("out").textContent = lines.join("\n");
+    document.title = failed ? "FAILED" : "PASSED";
+  })().catch((e) => {
+    document.getElementById("out").textContent = lines.join("\n") + "\nCRASH: " + e + "\n" + (e.stack || "");
+    document.title = "FAILED";
+  });
+</script>
+</body>
+</html>

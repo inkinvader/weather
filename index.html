@@ -7,10 +7,14 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <main id="app">
-    <h1>Weather Fit</h1>
-    <p>Scaffold loaded.</p>
-  </main>
+  <div id="app"></div>
+  <noscript><p class="noscript">Weather Fit needs JavaScript to load the weather.</p></noscript>
+  <script src="js/weather.js"></script>
+  <script src="js/recommend.js"></script>
+  <script src="js/variation.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/art.js"></script>
   <script src="js/app.js"></script>
+  <script>App.start(document.getElementById("app"));</script>
 </body>
 </html>

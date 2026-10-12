@@ -170,5 +170,5 @@
     return { timezone: data.timezone, days: days };
   }
 
-  window.WeatherApi = { geocodeCity, getDeviceLocation, fetchWeather, normalizeForecast, WeatherApiError, FORECAST_DAYS };
+  window.WeatherApi = { geocodeCity, getDeviceLocation, fetchWeather, normalizeForecast, WeatherApiError, FORECAST_DAYS, STATE_NAMES };
 })();
