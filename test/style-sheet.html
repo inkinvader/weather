@@ -51,6 +51,14 @@
     outfits.push(cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic" }), category: category, outfitId: v.id, tag: v.tag, view: "full", decorative: true }), category + ": " + v.name, 110, 183))));
   out.push(section("All 21 outfits", outfits));
 
+  // 3b. The hooded outfits, large
+  const hoodies = ["freezing-1", "cold-1", "cold-2"].map((id) => {
+    const cat = id.split("-")[0];
+    const v = Variation.OUTFIT_VARIATIONS[cat].find((x) => x.id === id);
+    return cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic", mouth: "grin" }), category: cat, outfitId: id, tag: v.tag, view: "full", decorative: true }), v.name, 220, 366);
+  });
+  out.push(section("Hooded outfits (close-up)", hoodies));
+
   // 4. Hair, skin, personalities, face traits (head view)
   const head = (c) => fig(Object.assign({}, base, c), "preview", null, "head");
   out.push(section("Hair (8)", T.HAIR.map((h) => cell(head({ hair: h.id }), h.label, 84, 84))));
