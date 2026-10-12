@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Store tests</title></head>
+<body>
+<pre id="out">running...</pre>
+<iframe id="frame" style="display:none"></iframe>
+<script src="../js/recommend.js"></script>
+<script src="../js/variation.js"></script>
+<script src="../js/store.js"></script>
+<script>
+  // Checks for js/store.js. The "survives a reload" test loads a helper page twice (write, then
+  // a brand-new page load that reads), so nothing carries over except what is in localStorage.
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+  const S = AppStore;
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const austin = { name: "Austin", state: "Texas", latitude: 30.26715, longitude: -97.74306 };
+  const dallas = { name: "Dallas", state: "Texas", latitude: 32.78306, longitude: -96.80667 };
+  const hot = { outfitCategory: "hot", weatherConditionIcon: "clear", activeReminders: ["sunscreen", "hydration"], isForecast: false };
+  const chill = { id: "char-1", personality: "chill" };
+
+  // Counts how often the picker actually runs, to tell a cache hit from a re-roll.
+  let resolveCalls = 0;
+  const realResolve = Variation.resolve;
+  Variation.resolve = function () { resolveCalls++; return realResolve.apply(this, arguments); };
+
+  function frameRun(phase) {
+    return new Promise((resolve) => {
+      const frame = document.getElementById("frame");
+      const onMessage = (event) => { window.removeEventListener("message", onMessage); resolve(event.data); };
+      window.addEventListener("message", onMessage);
+      frame.src = "store-frame.html?phase=" + phase + "&t=" + Date.now();
+    });
+  }
+
+  (async () => {
+    S.clearAll();
+
+    // --- Survives a real page reload ---
+    const written = await frameRun("write");
+    const read = await frameRun("read"); // fresh document, fresh JS
+    check("location survives reload", read.location && read.location.name === "Austin" && read.location.latitude === 30.26715, JSON.stringify(read.location));
+    check("saved characters survive reload", same(read.characters, [{ id: "char-1", personality: "energetic" }, { id: "char-2", personality: "grumpy" }]));
+    check("cached recommendation state survives reload and is reused (no re-roll)", same(read.state, written.state) && read.resolveCalls === 0,
+      read.state.outfitVariation + ", resolve calls after reload: " + read.resolveCalls);
+
+    // Main page shares the same localStorage, so it can inspect what the frame wrote.
+    check("main page reads the same saved location", S.getLocation() && S.getLocation().name === "Austin");
+    S.clearAll();
+
+    // --- Defaults and character limits ---
+    check("first run -> one default neutral character", same(S.getCharacters(), [{ id: "char-1", personality: "neutral" }]));
+    check("first run -> no saved location", S.getLocation() === null);
+    const five = Array.from({ length: 5 }, (_, i) => ({ id: "c" + i, personality: "neutral" }));
+    S.saveCharacters(five);
+    check("5 characters can be saved and read back", S.getCharacters().length === 5);
+    let threw = false; try { S.saveCharacters(five.concat({ id: "c5", personality: "neutral" })); } catch (e) { threw = true; }
+    check("6 characters rejected", threw && S.getCharacters().length === 5);
+    threw = false; try { S.saveCharacters([]); } catch (e) { threw = true; }
+    check("0 characters rejected", threw);
+    S.clearAll();
+
+    // --- Cache hit / miss / invalidation ---
+    S.setLocation(austin);
+    resolveCalls = 0;
+    const first = S.resolveWithCache(hot, austin, "2026-10-14", chill);
+    const second = S.resolveWithCache(hot, austin, "2026-10-14", chill);
+    check("second visit reuses the cache (resolve ran once)", resolveCalls === 1 && same(first, second), "calls=" + resolveCalls);
+
+    resolveCalls = 0;
+    S.resolveWithCache(hot, austin, "2026-10-15", chill);
+    check("a different date is a separate cache entry", resolveCalls === 1);
+
+    resolveCalls = 0;
+    S.resolveWithCache(hot, austin, "2026-10-14", { id: "char-2", personality: "chill" });
+    check("a different character is a separate cache entry", resolveCalls === 1);
+
+    resolveCalls = 0;
+    const cooler = { outfitCategory: "warm", weatherConditionIcon: "clear", activeReminders: ["sunscreen"], isForecast: false };
+    const rerolled = S.resolveWithCache(cooler, austin, "2026-10-14", chill);
+    check("forecast changed category/reminders -> cache invalidated and re-resolved", resolveCalls === 1 && rerolled.outfitCategory === "warm" && rerolled.activeReminders.length === 1);
+
+    resolveCalls = 0;
+    S.resolveWithCache(cooler, austin, "2026-10-14", chill);
+    check("...and the new state is cached in turn", resolveCalls === 0);
+
+    resolveCalls = 0;
+    S.resolveWithCache(cooler, austin, "2026-10-14", { id: "char-1", personality: "grumpy" });
+    check("personality edited -> cache invalidated", resolveCalls === 1);
+
+    resolveCalls = 0;
+    S.resolveWithCache(cooler, austin, "2026-10-14", { id: "char-1", personality: "grumpy" });
+    check("identical rule outcome + personality -> cache kept", resolveCalls === 0);
+    check("fingerprint ignores raw readings: same outcome from a different temperature gives the same fingerprint",
+      S.fingerprintFor(Recommend.evaluate({ temperatureF: 83.1, humidity: 50, windMph: 2, precipProbability: 0, uvIndex: 1, weatherCode: 0, isToday: true }), "chill") ===
+      S.fingerprintFor(Recommend.evaluate({ temperatureF: 86.4, humidity: 50, windMph: 2, precipProbability: 0, uvIndex: 1, weatherCode: 0, isToday: true }), "chill"));
+
+    // --- Only the most recent location is retained (requirement 5) ---
+    S.resolveWithCache(hot, austin, "2026-10-14", chill); // make sure Austin entries exist
+    S.setLocation(dallas);
+    const dump = Object.keys(localStorage).map((k) => k + "=" + localStorage.getItem(k)).join("\n");
+    check("after switching to Dallas, nothing about Austin remains in localStorage",
+      !dump.includes("30.26") && !dump.includes("-97.74") && !dump.includes("Austin"), "keys: " + Object.keys(localStorage).join(", "));
+    check("Dallas is the saved location", S.getLocation().name === "Dallas");
+    check("Austin's cache is gone", S.getCachedState(austin, "2026-10-14", "char-1", S.fingerprintFor(hot, "chill")) === null);
+    S.setLocation({ name: "Dallas", state: "Texas", latitude: 32.7831, longitude: -96.8067 }); // same place, GPS jitter
+    S.resolveWithCache(hot, dallas, "2026-10-14", chill);
+    S.setLocation({ name: "Current location", state: "", latitude: 32.7832, longitude: -96.8068 });
+    resolveCalls = 0;
+    S.resolveWithCache(hot, dallas, "2026-10-14", chill);
+    check("re-saving the same place (tiny coordinate jitter) keeps its cache", resolveCalls === 0);
+
+    // --- Pruning past dates ---
+    S.setLocation(austin);
+    ["2026-10-10", "2026-10-13", "2026-10-14", "2026-10-20"].forEach((d) => S.resolveWithCache(hot, austin, d, chill));
+    S.pruneCache(austin, "2026-10-14");
+    check("prune drops dates before today, keeps today and later",
+      S.getCachedState(austin, "2026-10-10", "char-1", S.fingerprintFor(hot, "chill")) === null &&
+      S.getCachedState(austin, "2026-10-13", "char-1", S.fingerprintFor(hot, "chill")) === null &&
+      S.getCachedState(austin, "2026-10-14", "char-1", S.fingerprintFor(hot, "chill")) !== null &&
+      S.getCachedState(austin, "2026-10-20", "char-1", S.fingerprintFor(hot, "chill")) !== null);
+
+    // --- Same key scheme as the picker ---
+    check("store location key matches the picker's seed key prefix", Variation.seedKeyFor(austin, "d", "c").startsWith(S.locationKey(austin) + "|"));
+
+    // --- Corrupt data and unavailable storage ---
+    localStorage.setItem("weatherfit.v1.location", "{not json");
+    localStorage.setItem("weatherfit.v1.characters", "[1,2");
+    localStorage.setItem("weatherfit.v1.cache", "garbage");
+    check("corrupt saved data -> treated as empty, no crash",
+      S.getLocation() === null && same(S.getCharacters(), [{ id: "char-1", personality: "neutral" }]) && S.getCachedState(austin, "d", "c", "f") === null);
+    localStorage.setItem("weatherfit.v1.location", JSON.stringify({ latitude: "x" }));
+    check("saved location with wrong field types -> ignored", S.getLocation() === null);
+    S.clearAll();
+
+    const realDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", { get() { throw new Error("blocked"); }, configurable: true });
+    let ok = true;
+    try {
+      S.setLocation(austin);
+      S.saveCharacters([{ id: "char-1", personality: "chill" }]);
+      resolveCalls = 0;
+      S.resolveWithCache(hot, austin, "2026-10-14", chill);
+      S.resolveWithCache(hot, austin, "2026-10-14", chill);
+      ok = S.getLocation().name === "Austin" && S.getCharacters()[0].personality === "chill" && resolveCalls === 1;
+    } catch (e) { ok = false; }
+    check("localStorage blocked -> app still works from memory (no crash)", ok);
+    Object.defineProperty(window, "localStorage", realDescriptor);
+    S.clearAll();
+    check("clearAll leaves nothing behind", Object.keys(localStorage).filter((k) => k.startsWith("weatherfit.")).length === 0 && S.getLocation() === null);
+
+    lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+    document.getElementById("out").textContent = lines.join("\n");
+    document.title = failed ? "FAILED" : "PASSED";
+  })().catch((e) => {
+    document.getElementById("out").textContent = lines.join("\n") + "\nCRASH: " + e + "\n" + (e.stack || "");
+    document.title = "FAILED";
+  });
+</script>
+</body>
+</html>

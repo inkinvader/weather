@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>store frame</title></head>
+<body>
+<script src="../js/recommend.js"></script>
+<script src="../js/variation.js"></script>
+<script src="../js/store.js"></script>
+<script>
+  // Helper page for store-test.html. Loaded fresh (a real page reload, with no JS state kept)
+  // first with ?phase=write, then with ?phase=read, and reports back to the parent test page.
+  const phase = new URLSearchParams(location.search).get("phase");
+  const place = { name: "Austin", state: "Texas", latitude: 30.26715, longitude: -97.74306 };
+  const hot = { outfitCategory: "hot", weatherConditionIcon: "clear", activeReminders: ["sunscreen", "hydration"], isForecast: false };
+  const chars = [{ id: "char-1", personality: "energetic" }, { id: "char-2", personality: "grumpy" }];
+
+  if (phase === "write") {
+    AppStore.setLocation(place);
+    AppStore.saveCharacters(chars);
+    const state = AppStore.resolveWithCache(hot, place, "2026-10-14", chars[0]);
+    parent.postMessage({ phase, state }, "*");
+  } else {
+    // Make any re-roll visible: if the cache were ignored this would call Variation.resolve.
+    let resolveCalls = 0;
+    const realResolve = Variation.resolve;
+    Variation.resolve = function () { resolveCalls++; return realResolve.apply(this, arguments); };
+    const state = AppStore.resolveWithCache(hot, place, "2026-10-14", chars[0]);
+    parent.postMessage({ phase, location: AppStore.getLocation(), characters: AppStore.getCharacters(), state, resolveCalls }, "*");
+  }
+</script>
+</body>
+</html>
