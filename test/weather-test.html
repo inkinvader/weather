@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>WeatherApi tests</title></head>
+<body>
+<pre id="out">running...</pre>
+<script src="../js/weather.js"></script>
+<script>
+  // Live-network checks against Open-Meteo plus offline checks of error handling.
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+  async function expectError(name, code, fn) {
+    try { await fn(); check(name, false, "no error thrown"); }
+    catch (e) { check(name, e instanceof WeatherApi.WeatherApiError && e.code === code, "code=" + e.code); }
+  }
+
+  (async () => {
+    const places = await WeatherApi.geocodeCity("Austin");
+    check("geocode 'Austin' returns US matches", places.length > 0 && places[0].state === "Texas",
+      places[0].name + ", " + places[0].state + " (" + places[0].latitude + ", " + places[0].longitude + ")");
+
+    const withState = await WeatherApi.geocodeCity("Austin, MN");
+    check("geocode 'Austin, MN' narrows to Minnesota", withState[0].state === "Minnesota", withState[0].state);
+
+    const withFullState = await WeatherApi.geocodeCity("Austin, Texas");
+    check("geocode 'Austin, Texas' accepts full state name", withFullState[0].state === "Texas", withFullState[0].state);
+    const withTx = await WeatherApi.geocodeCity("Springfield, MO");
+    check("geocode 'Springfield, MO' -> Missouri", withTx[0].state === "Missouri", withTx[0].state);
+
+    await expectError("geocode gibberish -> not_found", "not_found", () => WeatherApi.geocodeCity("zzqxqxqzz"));
+    await expectError("geocode empty -> not_found", "not_found", () => WeatherApi.geocodeCity("  "));
+
+    const w = await WeatherApi.fetchWeather(places[0].latitude, places[0].longitude);
+    check("forecast has 15 days (today + 14)", w.days.length === 15, w.days.length + " days");
+    check("day 0 flagged as today, rest are not", w.days[0].isToday && w.days.slice(1).every(d => !d.isToday));
+    const d0 = w.days[0], d14 = w.days[14];
+    const numericOk = (d) => ["temperatureF", "precipProbability", "uvIndex", "windMph", "humidity", "weatherCode"].every(f => typeof d[f] === "number");
+    check("today has all numeric inputs", numericOk(d0), JSON.stringify(d0));
+    check("day +14 has all numeric inputs", numericOk(d14), JSON.stringify(d14));
+
+    // Offline error paths (inputs for spec requirement 17)
+    try { WeatherApi.normalizeForecast({}); check("empty response -> missing", false); }
+    catch (e) { check("empty response -> missing", e.code === "missing", "code=" + e.code); }
+    try {
+      WeatherApi.normalizeForecast({
+        timezone: "x",
+        current: { temperature_2m: 70, relative_humidity_2m: 50, wind_speed_10m: 5, weather_code: 1 },
+        daily: { time: ["2026-01-01"], weather_code: [1], temperature_2m_max: [70], temperature_2m_min: [60],
+                 precipitation_probability_max: [null], uv_index_max: [3], wind_speed_10m_max: [5], relative_humidity_2m_mean: [50] },
+      });
+      check("null precip probability -> missing", false);
+    } catch (e) { check("null precip probability -> missing", e.code === "missing", e.message); }
+
+    const realFetch = window.fetch;
+    window.fetch = () => Promise.reject(new TypeError("offline"));
+    await expectError("network failure -> network", "network", () => WeatherApi.fetchWeather(30, -97));
+    window.fetch = () => Promise.resolve({ ok: false, status: 500 });
+    await expectError("HTTP 500 -> service", "service", () => WeatherApi.fetchWeather(30, -97));
+    window.fetch = realFetch;
+
+    // Device location: the real permission prompt can't be driven headlessly, so stub the browser API.
+    const realGeo = navigator.geolocation;
+    const stubGeo = (impl) => Object.defineProperty(navigator, "geolocation", { value: { getCurrentPosition: impl }, configurable: true });
+    stubGeo((ok) => ok({ coords: { latitude: 30.27, longitude: -97.74 } }));
+    const here = await WeatherApi.getDeviceLocation();
+    check("device location success returns coordinates", here.latitude === 30.27 && here.longitude === -97.74 && here.name === "Current location");
+    stubGeo((ok, err) => err({ code: 1 }));
+    await expectError("device location denied -> permission_denied", "permission_denied", () => WeatherApi.getDeviceLocation());
+    stubGeo((ok, err) => err({ code: 2 }));
+    await expectError("device location unavailable -> service", "service", () => WeatherApi.getDeviceLocation());
+    Object.defineProperty(navigator, "geolocation", { value: realGeo, configurable: true });
+
+    lines.push(failed ? failed + " FAILED" : "ALL PASSED");
+    document.getElementById("out").textContent = lines.join("\n");
+    document.title = failed ? "FAILED" : "PASSED";
+  })().catch((e) => {
+    document.getElementById("out").textContent = lines.join("\n") + "\nCRASH: " + e;
+    document.title = "FAILED";
+  });
+</script>
+</body>
+</html>

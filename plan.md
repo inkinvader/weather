@@ -45,7 +45,7 @@ During implementation, follow the approved plan in working checkpoints and keep 
 ### Build
 
 - [x] Scaffold the project (HTML/CSS/JS, no build step) and confirm GitHub Pages serves a blank page at the public URL (https://inkinvader.github.io/weather/, verified 200 over HTTPS)
-- [ ] Integrate Open-Meteo geocoding + forecast fetch (manual city entry and device geolocation); confirm real current + forecast data logs correctly for a test location
+- [x] Integrate Open-Meteo geocoding + forecast fetch (manual city entry and device geolocation); confirm real current + forecast data logs correctly for a test location (`js/weather.js`; 17 checks in `test/weather-test.html` pass against the live API for Austin, TX. Real browser permission prompt on a phone still to verify at the deployed-app test.)
 - [ ] Implement temperature-band mapping and reminder-threshold evaluation (`research.md` rules); confirm correct category and active reminders for known test values
 - [ ] Implement the seeded random variation picker (keyed by location + date + character); confirm identical inputs always reproduce identical picks, and different inputs vary
 - [ ] Implement `localStorage` persistence (most-recent location, saved characters, cached recommendation state per location+date+character); confirm state survives a page reload
@@ -101,6 +101,8 @@ After all three sessions: summarize the strongest recurring finding and the one 
 ## Revisions
 
 Record material plan changes and why they were made.
+
+- **2026-10-12, checkpoint 2:** Two data-handling decisions made while building the fetch layer, pending Developer review. (1) For future days the "temperature" fed to the recommendation is the forecast daily high (today uses the live current reading); the low is kept but unused. (2) Humidity for future days is the daily mean, so heat index for those days is computed from the high temperature with mean humidity, which tends to understate it. Also: device location is labelled "Current location" because Open-Meteo has no reverse geocoder. If any of these should change what the spec says, update `spec.md`.
 
 ## Saving transcripts
 
