@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Picker interaction tests</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    html, body { height: auto; }
+    pre#out { margin: 0; padding: 8px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<pre id="out">running...</pre>
+<script src="../js/weather.js"></script>
+<script src="../js/recommend.js"></script>
+<script src="../js/variation.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/app.js"></script>
+<script>
+  // Drives the real App with clicks, typing and keyboard events. The network is stubbed so each
+  // scenario controls exactly what Open-Meteo "returns" (success, no match, slow, errors, denial).
+  const lines = [];
+  let failed = 0;
+  function check(name, ok, detail) {
+    if (!ok) failed++;
+    lines.push((ok ? "PASS " : "FAIL ") + name + (detail ? "  -> " + detail : ""));
+  }
+
+  const E = WeatherApi.WeatherApiError;
+  const real = { geocodeCity: WeatherApi.geocodeCity, fetchWeather: WeatherApi.fetchWeather, getDeviceLocation: WeatherApi.getDeviceLocation };
+  const places = {
+    austinTx: { name: "Austin", state: "Texas", latitude: 30.26715, longitude: -97.74306 },
+    austinMn: { name: "Austin", state: "Minnesota", latitude: 43.66663, longitude: -92.97464 },
+    dallas: { name: "Dallas", state: "Texas", latitude: 32.78306, longitude: -96.80667 },
+  };
+  // 15 days from Mon 2026-10-12; day i is (latitude + i) F, so the number on screen proves which
+  // place and which day was loaded.
+  function weatherFor(place) {
+    return {
+      days: Array.from({ length: 15 }, (_, i) => ({
+        date: "2026-10-" + String(12 + i).padStart(2, "0"), isToday: i === 0,
+        temperatureF: Math.round(place.latitude) + i, highF: Math.round(place.latitude) + i, lowF: 40,
+        precipProbability: 5, uvIndex: 1, windMph: 4, humidity: 50, weatherCode: 2,
+      })),
+    };
+  }
+  let calls;
+  function stubNetwork(overrides) {
+    calls = { geocode: [], fetch: [], device: 0 };
+    WeatherApi.geocodeCity = async (q) => {
+      calls.geocode.push(q);
+      if (overrides && overrides.geocode) return overrides.geocode(q);
+      const key = q.toLowerCase();
+      if (key.startsWith("austin")) return [places.austinTx, places.austinMn];
+      if (key.startsWith("dallas")) return [places.dallas];
+      throw new E("not_found", "none");
+    };
+    WeatherApi.fetchWeather = async (lat, lon) => {
+      calls.fetch.push(lat);
+      if (overrides && overrides.fetch) return overrides.fetch(lat, lon);
+      return weatherFor({ latitude: lat });
+    };
+    WeatherApi.getDeviceLocation = async () => {
+      calls.device++;
+      if (overrides && overrides.device) return overrides.device();
+      return { name: "Current location", state: "", latitude: 40.1, longitude: -75.2 };
+    };
+  }
+
+  const settle = async () => { for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0)); };
+  function mount() {
+    const el = document.createElement("div");
+    el.style.cssText = "width:390px;height:700px;position:absolute;left:-5000px;top:0"; // focusable, off-screen
+    document.body.appendChild(el);
+    return el;
+  }
+  const $ = (root, sel) => root.querySelector(sel);
+  const $$ = (root, sel) => Array.from(root.querySelectorAll(sel));
+  const text = (root, sel) => ($(root, sel) ? $(root, sel).textContent.trim() : null);
+  const key = (el, k, extra) => { const ev = new KeyboardEvent("keydown", Object.assign({ key: k, bubbles: true, cancelable: true }, extra)); el.dispatchEvent(ev); return ev; };
+  function submitSearch(root, query) {
+    $(root, "#city-input").value = query;
+    $(root, "form.search").requestSubmit();
+  }
+  const characters = [{ id: "c1", personality: "chill" }, { id: "c2", personality: "grumpy" }];
+  function freshApp(saved) {
+    AppStore.clearAll();
+    AppStore.saveCharacters(characters);
+    if (saved) AppStore.setLocation(saved);
+  }
+
+  (async () => {
+    // ================= Saved place loads; date stepper =================
+    stubNetwork();
+    freshApp(places.austinTx);
+    let root = mount();
+    await App.start(root);
+    check("saved place loads on start without opening any picker", text(root, ".place") === "Austin, TX" && !$(root, ".sheet-layer") && calls.fetch.length === 1, "fetches: " + calls.fetch.length);
+    check("geolocation is NOT requested on load (only on the button)", calls.device === 0);
+    check("today: shows 30F, no Forecast badge, Previous day disabled, Next day enabled",
+      text(root, ".temp") === "30°F" && !$(root, ".badge") && $(root, '[data-action="prev-day"]').disabled && !$(root, '[data-action="next-day"]').disabled);
+    $(root, '[data-action="next-day"]').click();
+    check("Next day -> Tue, Oct 13, 'High 31°F', Forecast badge appears",
+      text(root, ".date").startsWith("Tue, Oct 13") && text(root, ".temp") === "High 31°F" && text(root, ".badge") === "Forecast", text(root, ".date") + " / " + text(root, ".temp"));
+    check("focus stays on Next day so it can be tapped again", document.activeElement === $(root, '[data-action="next-day"]'));
+    for (let i = 0; i < 13; i++) $(root, '[data-action="next-day"]').click();
+    check("after 14 steps: Mon, Oct 26 (today + 14), Next day disabled, no way further",
+      text(root, ".date").startsWith("Mon, Oct 26") && $(root, '[data-action="next-day"]').disabled && text(root, ".temp") === "High 44°F", text(root, ".date"));
+    check("focus moves to the date button when Next day runs out", document.activeElement === $(root, '[data-action="open-date"]'));
+    $(root, '[data-action="prev-day"]').click();
+    check("Previous day -> Sun, Oct 25", text(root, ".date").startsWith("Sun, Oct 25"), text(root, ".date"));
+
+    // ================= Date sheet =================
+    root = mount();
+    await App.start(root);
+    $(root, '[data-action="open-date"]').click();
+    const dialog = $(root, '[role="dialog"]');
+    check("date button opens a modal dialog with a title", dialog && dialog.getAttribute("aria-modal") === "true" && text(root, "#sheet-title") === "Choose a date");
+    const dayButtons = $$(root, ".cal-day");
+    const labels = dayButtons.map((b) => b.getAttribute("aria-label"));
+    check("calendar offers exactly 15 days: today through today+14", dayButtons.length === 15 && labels[0] === "Mon, Oct 12 (today)" && labels[14] === "Mon, Oct 26", labels[0] + " ... " + labels[14]);
+    check("no control exists for yesterday or for 15 days ahead",
+      !labels.some((l) => l.includes("Oct 11") || l.includes("Oct 27")) && $$(root, ".cal-day, .cal button, input[type=date]").length === 15);
+    check("Monday start leaves one blank cell under Sunday so days sit under their weekday", $$(root, ".cal-blank").length === 1);
+    check("today is marked selected (aria-pressed) and focused when the sheet opens",
+      dayButtons[0].getAttribute("aria-pressed") === "true" && dayButtons.filter((b) => b.getAttribute("aria-pressed") === "true").length === 1 && document.activeElement === dayButtons[0]);
+    dayButtons[5].click();
+    check("picking Sat Oct 17 closes the sheet, shows 'High 35°F' and the Forecast badge",
+      !$(root, ".sheet-layer") && text(root, ".date").startsWith("Sat, Oct 17") && text(root, ".temp") === "High 35°F" && text(root, ".badge") === "Forecast", text(root, ".date"));
+    check("focus returns to the date button after picking", document.activeElement === $(root, '[data-action="open-date"]'));
+    $(root, '[data-action="open-date"]').click();
+    check("reopening marks the picked day as selected", $$(root, ".cal-day")[5].getAttribute("aria-pressed") === "true");
+    key(document.activeElement, "Escape");
+    check("Escape closes the date sheet and returns focus to the date button", !$(root, ".sheet-layer") && document.activeElement === $(root, '[data-action="open-date"]'));
+    $(root, '[data-action="open-date"]').click();
+    $(root, ".backdrop").click();
+    check("clicking outside the sheet closes it (selection unchanged)", !$(root, ".sheet-layer") && text(root, ".date").startsWith("Sat, Oct 17"));
+    $(root, '[data-action="open-date"]').click();
+    const focusables = $$(root, ".sheet-layer button");
+    focusables[focusables.length - 1].focus();
+    const tab = key(focusables[focusables.length - 1], "Tab");
+    check("Tab from the last control wraps to the first (focus stays in the dialog)", tab.defaultPrevented && document.activeElement === focusables[0]);
+    const shiftTab = key(focusables[0], "Tab", { shiftKey: true });
+    check("Shift+Tab from the first control wraps to the last", shiftTab.defaultPrevented && document.activeElement === focusables[focusables.length - 1]);
+    $$(root, ".cal-day")[0].click();
+    check("picking today again removes the Forecast badge", !$(root, ".badge") && text(root, ".temp") === "30°F");
+
+    // ================= Location sheet: search =================
+    stubNetwork();
+    freshApp(places.austinTx);
+    root = mount();
+    await App.start(root);
+    $(root, '[data-action="next-day"]').click(); // be on a future day, to prove a new place resets to today
+    $(root, '[data-action="open-location"]').click();
+    check("location button opens the picker with the city box focused",
+      text(root, "#sheet-title") === "Choose a location" && document.activeElement === $(root, "#city-input"));
+    check("picker offers 'Use my location' and a typed US city", Boolean($(root, '[data-action="use-device"]')) && Boolean($(root, "#city-input")));
+    submitSearch(root, "   ");
+    check("empty search -> prompt, nothing fetched", text(root, ".sheet-status") === "Type a US city, like Austin, TX." && calls.geocode.length === 0);
+    submitSearch(root, "Austin");
+    await settle();
+    const results = $$(root, ".result").map((b) => b.textContent.trim());
+    check("'Austin' with two matches lists both and asks which", results.join() === "Austin, TX,Austin, MN" && text(root, ".sheet-status") === "2 matches. Choose one.", results.join(" | "));
+    check("nothing is saved or loaded until a match is chosen", AppStore.getLocation().state === "Texas" && calls.fetch.length === 1);
+    $$(root, ".result")[1].click();
+    check("while the weather is on its way the screen says Loading", text(root, "p") === "Loading");
+    await settle();
+    check("choosing Austin, MN loads it: place, today's date, 44F, no badge, saved on device",
+      text(root, ".place") === "Austin, MN" && text(root, ".temp") === "44°F" && !$(root, ".badge") && AppStore.getLocation().state === "Minnesota", text(root, ".place") + " " + text(root, ".temp"));
+    check("only the new place is stored (the old one is gone)", !JSON.stringify(Object.entries(localStorage)).includes("30.26"));
+
+    $(root, '[data-action="open-location"]').click();
+    submitSearch(root, "Dallas");
+    await settle();
+    check("a single match loads straight away (no extra tap)", text(root, ".place") === "Dallas, TX" && text(root, ".temp") === "33°F", text(root, ".place"));
+
+    $(root, '[data-action="open-location"]').click();
+    submitSearch(root, "zzzz");
+    await settle();
+    check("unknown city -> inline 'No US city found', sheet stays open, saved place unchanged",
+      text(root, ".sheet-status") === 'No US city found for "zzzz".' && Boolean($(root, ".sheet-layer")) && AppStore.getLocation().name === "Dallas");
+    key(document.activeElement, "Escape");
+
+    // ================= Location sheet: failures with Back =================
+    stubNetwork({ geocode: async () => { throw new E("network", "down"); } });
+    $(root, '[data-action="open-location"]').click();
+    submitSearch(root, "Austin");
+    await settle();
+    check("search service error -> 'Error. Reload the page.' with a Back button",
+      text(root, "p") === "Error. Reload the page." && Boolean($(root, '[data-action="back"]')), text(root, "p"));
+    $(root, '[data-action="back"]').click();
+    check("Back returns to the previous screen: Dallas still shown and saved",
+      text(root, ".place") === "Dallas, TX" && AppStore.getLocation().name === "Dallas");
+
+    stubNetwork({ fetch: async () => { throw new E("service", "500"); } });
+    $(root, '[data-action="open-location"]').click();
+    submitSearch(root, "Austin");
+    await settle();
+    $$(root, ".result")[0].click();
+    await settle();
+    check("weather fetch fails after choosing -> 'Error. Reload the page.' + Back", text(root, "p") === "Error. Reload the page." && Boolean($(root, '[data-action="back"]')));
+    check("failed lookup does not replace the saved location", AppStore.getLocation().name === "Dallas");
+    $(root, '[data-action="back"]').click();
+    check("Back shows the old place again", text(root, ".place") === "Dallas, TX");
+
+    stubNetwork({ fetch: async () => { throw new E("missing", "no data"); } });
+    $(root, '[data-action="open-location"]').click();
+    submitSearch(root, "Austin");
+    await settle();
+    $$(root, ".result")[0].click();
+    await settle();
+    check("missing data -> 'Missing data, try again in a moment.' + Back", text(root, "p") === "Missing data, try again in a moment." && Boolean($(root, '[data-action="back"]')));
+    $(root, '[data-action="back"]').click();
+
+    // ================= Device location =================
+    stubNetwork();
+    $(root, '[data-action="open-location"]').click();
+    check("opening the picker does not ask for device location", calls.device === 0);
+    $(root, '[data-action="use-device"]').click();
+    check("tapping 'Use my location' shows progress", text(root, ".sheet-status") === "Finding your location…" && calls.device === 1);
+    await settle();
+    check("device location loads 'Current location' (40F) and saves it",
+      text(root, ".place") === "Current location" && text(root, ".temp") === "40°F" && AppStore.getLocation().name === "Current location", text(root, ".place"));
+
+    stubNetwork({ device: async () => { throw new E("permission_denied", "no"); } });
+    $(root, '[data-action="open-location"]').click();
+    $(root, '[data-action="use-device"]').click();
+    await settle();
+    check("permission denied -> 'Denied location permission.' + Back", text(root, "p") === "Denied location permission." && Boolean($(root, '[data-action="back"]')), text(root, "p"));
+    $(root, '[data-action="back"]').click();
+    check("Back after denial returns to the previous place, saved place untouched", text(root, ".place") === "Current location" && AppStore.getLocation().name === "Current location");
+
+    stubNetwork({ device: async () => { throw new E("service", "timeout"); } });
+    $(root, '[data-action="open-location"]').click();
+    $(root, '[data-action="use-device"]').click();
+    await settle();
+    check("device lookup fails (not a denial) -> 'Error. Reload the page.'", text(root, "p") === "Error. Reload the page.");
+    $(root, '[data-action="back"]').click();
+
+    // ================= Stale / cancelled requests =================
+    let releaseSlow;
+    stubNetwork({ geocode: (q) => q === "Austin" ? new Promise((resolve) => { releaseSlow = () => resolve([places.austinTx, places.austinMn]); }) : Promise.resolve([places.dallas]) });
+    $(root, '[data-action="open-location"]').click();
+    submitSearch(root, "Austin"); // slow
+    submitSearch(root, "Dallas"); // fast, newer
+    await settle();
+    check("newer search wins: Dallas loaded", text(root, ".place") === "Dallas, TX");
+    releaseSlow();
+    await settle();
+    check("the older, slower search is ignored when it finally answers", text(root, ".place") === "Dallas, TX" && !$(root, ".results"));
+
+    let releaseDevice;
+    stubNetwork({ device: () => new Promise((resolve) => { releaseDevice = () => resolve({ name: "Current location", state: "", latitude: 40.1, longitude: -75.2 }); }) });
+    $(root, '[data-action="open-location"]').click();
+    $(root, '[data-action="use-device"]').click();
+    $(root, '[data-action="close-sheet"]').click(); // user cancels while the browser prompt is open
+    releaseDevice();
+    await settle();
+    check("closing the picker cancels a pending device-location request", text(root, ".place") === "Dallas, TX" && AppStore.getLocation().name === "Dallas");
+
+    // ================= First run, reload, initial failure =================
+    stubNetwork();
+    freshApp(null);
+    root = mount();
+    await App.start(root);
+    check("first run: location picker opens by itself, no date controls yet, no fetch",
+      text(root, "#sheet-title") === "Choose a location" && document.activeElement === $(root, "#city-input") && !$(root, ".datebar") && calls.fetch.length === 0);
+    submitSearch(root, "Dallas");
+    await settle();
+    check("first run: choosing a city shows the weather and the date controls", text(root, ".place") === "Dallas, TX" && Boolean($(root, ".datebar")));
+    const reloaded = mount();
+    await App.start(reloaded);
+    check("after a reload the same place loads with no prompt (only the latest place is kept)",
+      text(reloaded, ".place") === "Dallas, TX" && !$(reloaded, ".sheet-layer") && AppStore.getLocation().name === "Dallas");
+
+    stubNetwork({ fetch: async () => { throw new E("network", "down"); } });
+    const failing = mount();
+    await App.start(failing);
+    check("initial load fails -> 'Error. Reload the page.' with no Back (nothing to go back to)",
+      text(failing, "p") === "Error. Reload the page." && !$(failing, '[data-action="back"]'));
+
+    WeatherApi.geocodeCity = real.geocodeCity;
+    WeatherApi.fetchWeather = real.fetchWeather;
+    WeatherApi.getDeviceLocation = real.getDeviceLocation;
+    AppStore.clearAll();
+
+    lines.push(failed ? failed + " FAILED" : "ALL PASSED (" + lines.length + " checks)");
+    document.getElementById("out").textContent = lines.join("\n");
+    document.title = failed ? "FAILED" : "PASSED";
+  })().catch((e) => {
+    document.getElementById("out").textContent = lines.join("\n") + "\nCRASH: " + e + "\n" + (e.stack || "");
+    document.title = "FAILED";
+  });
+</script>
+</body>
+</html>

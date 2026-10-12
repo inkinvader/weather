@@ -64,6 +64,18 @@
     check("0 characters rejected", threw);
     S.clearAll();
 
+    // --- Main character ---
+    S.saveCharacters([{ id: "a", personality: "chill" }, { id: "b", personality: "grumpy" }, { id: "c", personality: "neutral" }]);
+    check("no main chosen -> the first character is main", S.getMainCharacterId() === "a");
+    S.setMainCharacterId("b");
+    check("chosen main is remembered", S.getMainCharacterId() === "b");
+    threw = false; try { S.setMainCharacterId("zzz"); } catch (e) { threw = true; }
+    check("main must be one of the saved characters", threw && S.getMainCharacterId() === "b");
+    S.saveCharacters([{ id: "a", personality: "chill" }, { id: "c", personality: "neutral" }]);
+    check("main character removed -> falls back to the first", S.getMainCharacterId() === "a");
+    S.clearAll();
+    check("clearAll also forgets the main choice", S.getMainCharacterId() === "char-1" && !localStorage.getItem("weatherfit.v1.main"));
+
     // --- Cache hit / miss / invalidation ---
     S.setLocation(austin);
     resolveCalls = 0;

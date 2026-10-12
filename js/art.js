@@ -209,7 +209,8 @@
     }
 
     return (
-      '<svg class="character-art" viewBox="0 0 120 232" width="120" height="232" role="img" aria-label="' + look.alt + '">' +
+      // No fixed size: CSS scales the figure to the room available, anchored to the ground.
+      '<svg class="character-art" viewBox="0 0 120 232" preserveAspectRatio="xMidYMax meet" role="img" aria-label="' + look.alt + '">' +
       parts.join("") +
       "</svg>"
     );

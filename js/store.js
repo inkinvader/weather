@@ -9,6 +9,7 @@
 (function () {
   const KEY_LOCATION = "weatherfit.v1.location";
   const KEY_CHARACTERS = "weatherfit.v1.characters";
+  const KEY_MAIN = "weatherfit.v1.main";
   const KEY_CACHE = "weatherfit.v1.cache";
   const MAX_CHARACTERS = 5;
 
@@ -101,6 +102,19 @@
     writeRaw(KEY_CHARACTERS, JSON.stringify(characters));
   }
 
+  // The "main" character stands in the middle of the scene and its wording is the one the
+  // reminders show. If none is chosen (or the chosen one was removed), the first character is main.
+  function getMainCharacterId() {
+    const characters = getCharacters();
+    const saved = readRaw(KEY_MAIN);
+    return characters.some((c) => c.id === saved) ? saved : characters[0].id;
+  }
+
+  function setMainCharacterId(id) {
+    if (!getCharacters().some((c) => c.id === id)) throw new Error("No saved character with id " + id);
+    writeRaw(KEY_MAIN, id);
+  }
+
   // --- Recommendation cache -----------------------------------------------------------------
   // Shape: { locationKey, entries: { "<date>|<characterId>": { fingerprint, state } } }
   function readCache(location) {
@@ -157,7 +171,7 @@
 
   // Settings "reset": forget everything this app saved.
   function clearAll() {
-    [KEY_LOCATION, KEY_CHARACTERS, KEY_CACHE].forEach(removeRaw);
+    [KEY_LOCATION, KEY_CHARACTERS, KEY_MAIN, KEY_CACHE].forEach(removeRaw);
   }
 
   window.AppStore = {
@@ -167,6 +181,8 @@
     setLocation,
     getCharacters,
     saveCharacters,
+    getMainCharacterId,
+    setMainCharacterId,
     fingerprintFor,
     getCachedState,
     setCachedState,

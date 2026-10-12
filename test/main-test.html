@@ -44,6 +44,7 @@
       Object.assign({ date: "2026-10-" + String(12 + i).padStart(2, "0"), isToday: i === 0 }, base, (over && over[i]) || {}));
   }
   const char = (id, personality) => ({ id: id, personality: personality });
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
   const cases = [
     { id: "hot", title: "Hot, humid, sunny - today - 1 character",
@@ -142,10 +143,20 @@
   cases.forEach((c) => {
     const root = frames[c.id];
     const summaryBottom = rect($(root, ".summary")).bottom;
-    const topOfArt = Math.min(...$$(root, ".character-art").map((a) => rect(a).top));
+    // The figure is drawn at the bottom of its box (aspect 120:232), so measure where it really starts.
+    const topOfArt = Math.min(...$$(root, ".character-art").map((a) => { const r = rect(a); return r.bottom - Math.min(r.height, (r.width * 232) / 120); }));
     check(c.id + ": weather text ends above the characters (" + Math.round(summaryBottom) + " <= " + Math.round(topOfArt) + ")", summaryBottom <= topOfArt + 0.5);
-    check(c.id + ": Date and Location buttons are at least 44x44",
-      $$(root, ".ctl").length === 2 && $$(root, ".ctl").every((b) => rect(b).width >= 44 && rect(b).height >= 44));
+    check(c.id + ": date stepper (previous, date, next) and location buttons are all at least 44x44",
+      $$(root, ".ctl").length === 4 && $$(root, ".ctl").every((b) => rect(b).width >= 44 && rect(b).height >= 44));
+    const frameRect = rect(root);
+    check(c.id + ": date and location controls sit in the lower third of the phone (thumb reach)",
+      $$(root, ".ctl").every((b) => rect(b).top >= frameRect.top + (frameRect.height * 2) / 3),
+      "controls top at " + Math.round(rect($(root, ".controls")).top - frameRect.top) + " of " + Math.round(frameRect.height) + " px");
+    // Text must fit inside its button: a clipped "Mon, Oct 1" next to an arrow is a real defect.
+    const fits = (btn) => { const s = btn.querySelector("span"), st = getComputedStyle(btn); return s.getBoundingClientRect().width <= btn.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) + 0.5; };
+    check(c.id + ": the date text fits inside its button (not clipped by the arrows)", fits($(root, '[data-action="open-date"]')),
+      Math.round($(root, '[data-action="open-date"] span').getBoundingClientRect().width) + " px text in " + $(root, '[data-action="open-date"]').clientWidth + " px button");
+    check(c.id + ": date button shows the selected date", $(root, '[data-action="open-date"]').textContent.trim() === text(root, ".date").replace("Forecast", "").trim());
     check(c.id + ": bottom nav has Home, Character, Settings, each at least 44 tall",
       $$(root, ".tab").map((t) => t.textContent.trim()).join() === "Home,Character,Settings" && $$(root, ".tab").every((t) => rect(t).height >= 44));
     check(c.id + ": every role=img SVG has a label", $$(root, 'svg[role="img"]').every((s) => s.getAttribute("aria-label")));
@@ -177,6 +188,72 @@
   const rendered = frames.hot.querySelector(".character-art").outerHTML;
   check("hot-day figure shows its outfit: hot-2 'light long sleeves, sun hat, sunglasses' draws sleeves and a hat and glasses",
     $(frames.hot, ".character").dataset.outfit !== "hot-2" || (rendered.includes("#d8c08a") && rendered.includes('fill="#1d1d1d"')));
+
+  // --- Main character: in the middle, bigger, and the reminders use its wording ---
+  const roster = [char("a", "energetic"), char("b", "anxious"), char("c", "grumpy"), char("d", "chill"), char("e", "neutral")];
+  const orderIds = (n, mainId) => App.orderForStage(roster.slice(0, n), mainId).map((x) => x.id).join("");
+  check("stage order: 1 character -> a", orderIds(1, "a") === "a");
+  check("stage order: 2 characters, main b -> a b (main on the right of centre)", orderIds(2, "b") === "ab");
+  check("stage order: 3 characters, main c -> a c b (main exactly in the middle)", orderIds(3, "c") === "acb", orderIds(3, "c"));
+  check("stage order: 5 characters, main e -> a b e c d (main exactly in the middle)", orderIds(5, "e") === "abecd", orderIds(5, "e"));
+  check("stage order: 5 characters, main a -> b c a d e", orderIds(5, "a") === "bcade", orderIds(5, "a"));
+  check("stage order: unknown main id falls back to the first character as main (b a c)", orderIds(3, "zzz") === "bac", orderIds(3, "zzz"));
+
+  const hotDay = makeDays({ 0: { temperatureF: 92, humidity: 60, precipProbability: 70, uvIndex: 7, weatherCode: 95 } });
+  const mainRoot = document.createElement("div");
+  mainRoot.style.cssText = "width:390px;height:700px;position:absolute;left:0;top:0;visibility:hidden"; // laid out, not shown
+  document.body.appendChild(mainRoot);
+  App.render(mainRoot, { location: austin, days: hotDay, dayIndex: 0, characters: roster.slice(0, 3), mainId: "c" });
+  const figsRow = $$(mainRoot, ".character");
+  check("main character renders in the middle slot and is flagged main", figsRow.length === 3 && figsRow[1].dataset.character === "c" && figsRow[1].dataset.main === "true" && $$(mainRoot, '[data-main="true"]').length === 1,
+    figsRow.map((x) => x.dataset.character).join(""));
+  const artHeight = (fig) => rect(fig.querySelector(".character-art")).height;
+  check("main character's figure is taller than the others'", artHeight(figsRow[1]) > artHeight(figsRow[0]) && artHeight(figsRow[1]) > artHeight(figsRow[2]),
+    Math.round(artHeight(figsRow[0])) + " / " + Math.round(artHeight(figsRow[1])) + " / " + Math.round(artHeight(figsRow[2])) + " px");
+  const dayForMain = hotDay[0];
+  const mainEval = Recommend.evaluate(dayForMain);
+  const mainState = AppStore.resolveWithCache(mainEval, austin, dayForMain.date, roster[2]);
+  const expectedWording = mainState.activeReminders.map((r) => Variation.REMINDER_WORDINGS[r.type][Number(r.wordingVariation.split("-").pop()) - 1]);
+  check("reminder wording on screen is the main character's wording, in order",
+    same(expectedWording, $$(mainRoot, ".reminders li").map((li) => li.textContent.trim())) && expectedWording.length === 3, expectedWording.length + " reminders");
+  check("main character's accessible name says (main)", figsRow[1].querySelector("svg").getAttribute("aria-label").includes("(main)"));
+  const otherMain = (() => { // pick a main whose wording differs from c's for at least one reminder, across many dates
+    for (let i = 0; i < 40; i++) {
+      const d = Object.assign({}, dayForMain, { date: "2027-01-" + String(1 + (i % 28)).padStart(2, "0") });
+      const a = AppStore.resolveWithCache(Recommend.evaluate(d), austin, d.date, roster[0]).activeReminders.map((r) => r.wordingVariation).join();
+      const b = AppStore.resolveWithCache(Recommend.evaluate(d), austin, d.date, roster[2]).activeReminders.map((r) => r.wordingVariation).join();
+      if (a !== b) return d;
+    }
+    return null;
+  })();
+  check("choosing a different main changes which wording shows (characters differ on some dates)", otherMain !== null);
+  if (otherMain) {
+    const days2 = makeDays({ 0: otherMain });
+    App.render(mainRoot, { location: austin, days: days2, dayIndex: 0, characters: roster.slice(0, 3), mainId: "a" });
+    const shownA = $$(mainRoot, ".reminders li").map((li) => li.textContent.trim());
+    App.render(mainRoot, { location: austin, days: days2, dayIndex: 0, characters: roster.slice(0, 3), mainId: "c" });
+    const shownC = $$(mainRoot, ".reminders li").map((li) => li.textContent.trim());
+    check("same weather, main a vs main c -> different reminder wording on screen", !same(shownA, shownC), shownA.length + " vs " + shownC.length + " reminders");
+  }
+
+  // --- Narrow phone (320px) with a wide date: nothing may clip or overflow ---
+  [320, 360].forEach((width) => {
+    const narrow = document.createElement("div");
+    narrow.style.cssText = "width:" + width + "px;height:640px;position:absolute;left:0;top:0;visibility:hidden";
+    document.body.appendChild(narrow);
+    const wideDays = makeDays({}).map((d, i) => (i === 0 ? Object.assign({}, d, { date: "2026-09-30" }) : d));
+    App.render(narrow, { location: { name: "Minneapolis", state: "Minnesota", latitude: 44.98, longitude: -93.26 }, days: wideDays, dayIndex: 0, characters: roster.slice(0, 3), mainId: "b" });
+    const btn = $(narrow, '[data-action="open-date"]');
+    const span = $(btn, "span");
+    check(width + "px phone: 'Wed, Sep 30' fits in the date button", span.getBoundingClientRect().width <= btn.clientWidth - 4 + 0.5,
+      Math.round(span.getBoundingClientRect().width) + " px text in " + btn.clientWidth + " px button");
+    const place = $(narrow, ".ctl-place");
+    check(width + "px phone: long city is cut with an ellipsis inside its button, not spilling out (button stays in the frame)",
+      rect(place).right <= rect(narrow).right + 0.5 && rect(btn).left >= rect(narrow).left);
+    check(width + "px phone: no horizontal overflow of the screen", $(narrow, ".screen").scrollWidth <= $(narrow, ".screen").clientWidth + 1);
+    check(width + "px phone: controls still at least 44px tall and 3 characters fit in the frame",
+      $$(narrow, ".ctl").every((b) => rect(b).height >= 44 && rect(b).width >= 44) && $$(narrow, ".character").every((c) => rect(c).left >= -0.5 && rect(c).right <= width + 0.5));
+  });
 
   // --- First run ---
   const nf = noLoc.querySelector(".case");

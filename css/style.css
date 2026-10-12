@@ -1,6 +1,7 @@
-/* Phone-first main screen (matches reference/sketch-main-screen.jpg, phone layout).
-   The distinct laptop layout (side nav, bottom control bars) is the responsive-pass checkpoint;
-   until then a wide window just shows the phone layout centered. */
+/* Phone-first main screen. Date and location controls sit in a bar just above the nav so they
+   are within thumb reach; pickers open as bottom sheets. The distinct laptop layout (side nav,
+   separate bottom bars) is the responsive-pass checkpoint; until then a wide window just shows the
+   phone layout centered. */
 
 :root {
   --ink: #12212f;
@@ -8,6 +9,7 @@
   --panel: rgba(255, 255, 255, 0.86);
   --line: #5b6f80;
   --accent: #1b5e9b;
+  --accent-ink: #ffffff;
   --badge-bg: #fff1b8;
   --chip-bg: #fff7d6;
   --nav-bg: #ffffff;
@@ -35,6 +37,25 @@ body {
   padding: 16px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid #0b57d0;
+  outline-offset: 2px;
+}
+
 .screen {
   position: relative;
   display: flex;
@@ -44,6 +65,7 @@ body {
   margin: 0 auto;
   overflow: hidden;
   background: #cfe6fa;
+  container-type: inline-size; /* lets the controls react to the screen's width, not the window's */
 }
 
 /* --- Scene: sky, skyline, ground, big weather icon --- */
@@ -78,37 +100,19 @@ body {
   color: #4b6786;
 }
 
-/* --- Top: date and location buttons in the corners, weather text in the middle --- */
+/* --- Top: the weather summary --- */
 .top {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: start;
-  gap: 8px;
+  display: flex;
+  justify-content: center;
   padding: 12px 12px 0;
-}
-
-.ctl {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px 12px;
-  font: inherit;
-  font-weight: 600;
-  color: var(--ink);
-  background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 14px;
-}
-
-.ctl:disabled,
-.tab:disabled {
-  opacity: 0.55;
 }
 
 .summary {
   min-width: 0;
-  padding: 8px 10px;
+  max-width: 100%;
+  padding: 8px 14px;
   text-align: center;
   background: var(--panel);
   border-radius: 14px;
@@ -188,32 +192,51 @@ body {
   flex: none;
 }
 
-/* --- Stage: characters standing on the ground --- */
+/* --- Stage: characters standing on the ground; the main character is bigger and in the middle --- */
 .stage {
   position: relative;
   z-index: 1;
   display: flex;
   flex: 1;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: center;
   gap: 4px;
-  padding: 0 8px 16px;
+  padding: 8px 8px 12px;
   min-height: 0;
 }
 
+/* Each character fills the stage's height; the figure inside scales to the room left after its
+   caption and stands on the ground (preserveAspectRatio xMidYMax), so it never runs up behind
+   the weather panel however short the phone is. */
 .character {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 0 1 190px;
+  justify-content: flex-end;
+  flex: 0 1 170px;
   min-width: 0;
+  min-height: 0;
   margin: 0;
 }
 
+.character.main {
+  flex-basis: 210px;
+}
+
 .character-art {
+  flex: 1 1 0;
   width: 100%;
-  max-width: 170px;
-  height: auto;
+  min-height: 0;
+  max-width: 190px;
+  max-height: 420px;
+}
+
+.character:not(.main) .character-art {
+  max-height: 80%; /* the main character is the focus, so the others are a little smaller */
+}
+
+.character.main .character-art {
+  max-width: 230px;
 }
 
 .character figcaption {
@@ -261,6 +284,90 @@ body {
   }
 }
 
+/* --- Controls bar: date stepper and location, above the nav --- */
+.controls {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); /* the date needs more room than a city name */
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+}
+
+.controls-single {
+  grid-template-columns: 1fr;
+}
+
+/* Very narrow phones: the date and the city each get a full-width row so nothing is clipped. */
+@container (max-width: 349px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.datebar {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  min-width: 0;
+}
+
+.ctl {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 10px;
+  font-weight: 600;
+  background: #fff;
+  border: 2px solid var(--line);
+}
+
+.ctl:disabled,
+.tab:disabled {
+  opacity: 0.5;
+}
+
+.ctl-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.ctl-step:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.ctl-step:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+.ctl-main {
+  min-width: 0;
+  padding: 6px 2px;
+  font-size: 0.95rem;
+  border-left-width: 0;
+  border-right-width: 0;
+  white-space: nowrap;
+}
+
+.ctl-place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.ctl-place span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctl-place svg {
+  flex: none;
+}
+
 /* --- Source credit and bottom navigation --- */
 .source {
   position: relative;
@@ -292,9 +399,7 @@ body {
   gap: 2px;
   min-height: 56px;
   padding: 6px 4px;
-  font: inherit;
   font-size: 0.8rem;
-  color: var(--ink);
   background: none;
   border: 0;
 }
@@ -305,11 +410,168 @@ body {
   box-shadow: inset 0 3px 0 var(--accent);
 }
 
+/* --- Buttons --- */
+.btn {
+  min-height: 44px;
+  padding: 8px 16px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+}
+
+.btn-wide {
+  width: 100%;
+}
+
+/* --- Bottom sheets (date and location pickers) --- */
+.sheet-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 25, 40, 0.45);
+}
+
+.sheet {
+  position: relative;
+  max-height: 85%;
+  padding: 12px 16px 20px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sheet-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.sheet-close {
+  width: 44px;
+  height: 44px;
+  font-size: 1.8rem;
+  line-height: 1;
+  background: #eef3f8;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.sheet-note {
+  margin: 8px 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.sheet-status {
+  min-height: 1.4em;
+  margin: 8px 0 4px;
+  font-size: 0.9rem;
+}
+
+/* Calendar grid: seven columns, today first, 15 days only */
+.cal-head,
+.cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-head span {
+  padding: 2px 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 2px;
+  font-weight: 700;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+}
+
+.cal-day[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cal-month {
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Location search */
+.search {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.search input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  font: inherit;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-weight: 600;
+  text-align: left;
+  background: #eef3f8;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+
 /* --- Loading / error message screens --- */
 .message {
   align-items: center;
   justify-content: center;
+  gap: 16px;
   font-size: 1.2rem;
   text-align: center;
   background: var(--page-bg);
+}
+
+.message p {
+  margin: 0;
 }

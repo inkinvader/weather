@@ -24,7 +24,7 @@ Help a college student who moves between locations quickly check current or upco
 
 Hand-drawn phone and laptop layouts for every screen, saved in `reference/`:
 
-- **Main screen** — [sketch-main-screen.jpg](reference/sketch-main-screen.jpg). One or more characters (side by side when multiple) stand in a scene matching location/time of day. Date and location buttons sit at the top (phone: inline with weather text; laptop: as separate control bars at the bottom), each opening an inline picker (calendar for date, within the 14-day forecast range; search/current-location for location) rather than navigating to a separate screen. Weather condition and temperature display near the top, with a "Forecast" badge shown whenever the selected date isn't today. Conditional reminder text/icon appears next to the condition text only when a threshold is triggered (not a permanent fixture). Bottom (phone) / left sidebar (laptop) navigation: Home, Character, Settings.
+- **Main screen** — [sketch-main-screen.jpg](reference/sketch-main-screen.jpg). One or more characters (side by side when multiple) stand in a scene matching location/time of day. Date and location controls sit in a bar just above the bottom navigation on phone (revised 2026-10-12: the sketch's top-corner buttons were hard to reach one-handed) and as separate control bars at the bottom on laptop. The date control has previous/next-day arrows plus a button that opens the calendar. Each opens an inline picker (calendar for date, within the 14-day forecast range; search/current-location for location) rather than navigating to a separate screen; on phone the pickers open as bottom sheets. Weather condition and temperature display near the top, with a "Forecast" badge shown whenever the selected date isn't today. Conditional reminder text/icon appears next to the condition text only when a threshold is triggered (not a permanent fixture). Bottom (phone) / left sidebar (laptop) navigation: Home, Character, Settings.
 - **Character builder** — [sketch-character-builder.jpg](reference/sketch-character-builder.jpg). Snapchat/Bitmoji-style builder. A gallery grid (top-left) switches between saved characters (1–5). The character preview is central/large. Scrollable trait tabs, ordered general → specific: Body type, Gender presentation, Skin tone, Hair, Eyes, Nose, Mouth, Ear, Personality — each tab shows a grid of selectable options. Laptop layout: Home/Character/Settings nav on the left (matching other screens), trait tabs and option grid on the right, character preview in the center.
 - **Settings** — [sketch-settings.jpg](reference/sketch-settings.jpg). List layout (Profile/Account-style items are placeholders for the real item set, still to be finalized — e.g., units, saved location, reset character data, privacy, About). The "About" item holds the brief's required info-screen content: creator, weather-data source, recommendation methodology, privacy practices, and art/style credits. Same Home/Character/Settings nav as other screens.
 - **Error / Loading** — [sketch-error-loading.jpg](reference/sketch-error-loading.jpg). Shared centered layout across four states: Loading (spinner + "Loading"); Missing data (X icon + "Missing data, try again in a moment."); Service error (X icon + "Error. Reload the page."); Denied location permission (X icon + "Denied location permission." + a back button to the previous screen).
@@ -51,8 +51,8 @@ Translate every fixed brief requirement and the selected research-driven feature
 
 ### Main screen and character
 
-6. **Character(s) as the focus.** The main screen displays 1–5 user-built characters (per the character builder), arranged side by side in the scene.
-   *Check:* the number of characters shown matches the number of active/selected characters, up to 5, displayed side by side.
+6. **Character(s) as the focus.** The main screen displays 1–5 user-built characters (per the character builder), arranged side by side in the scene. The user chooses one as the **main character** (default: the first); it stands in the middle, drawn larger than the others, and the reminders use its wording (revised 2026-10-12).
+   *Check:* the number of characters shown matches the number of active/selected characters, up to 5, displayed side by side; the main character is in the middle slot and visibly larger; choosing a different main character moves it to the middle and changes the reminder wording shown.
 7. **Single recommendation state drives all output.** For a given location + date + character, one recommendation state (derived from live weather values and the rules in `research.md`) determines that character's outfit, the weather icon, the written recommendation, and any reminders — no part of the display can contradict another.
    *Check:* for a fixed location/date/character, outfit, icon, written text, and reminders are all internally consistent with the same temperature band and condition (see "Recommendation state and data flow" below).
 8. **Current vs. forecast indicator.** A "Forecast" badge appears next to the date whenever the selected date is not today; it's absent when viewing today.
@@ -64,8 +64,8 @@ Translate every fixed brief requirement and the selected research-driven feature
 
 10. **Trait customization.** The character builder lets the user set, per saved character: body type (fat/skinny/average), gender presentation, skin tone, hair, eyes, nose, mouth, ear, and personality (energetic/anxious/grumpy/chill/neutral) — scrollable tabs, ordered general → specific as listed.
     *Check:* each trait tab is reachable by scrolling, and a selection in each tab visibly changes the character preview (except personality, which changes reaction behavior rather than appearance).
-11. **Character gallery.** A gallery view lets the user switch between, add, or remove saved characters (up to 5).
-    *Check:* the gallery shows all saved characters; selecting one makes it active; the limit of 5 is enforced (the add control is disabled or hidden at 5).
+11. **Character gallery.** A gallery view lets the user switch between, add, or remove saved characters (up to 5), and choose which one is the main character (see requirement 6).
+    *Check:* the gallery shows all saved characters; selecting one makes it active; the limit of 5 is enforced (the add control is disabled or hidden at 5); a "make main" control marks exactly one character as main, and removing the main character makes the first remaining one main.
 
 ### Content variation
 
@@ -164,6 +164,10 @@ Record features intentionally excluded from this project.
 ## Revisions
 
 After implementation or testing, record requirement changes and the evidence that prompted them. Update the screen drawings when a material layout or interaction changes.
+
+- **2026-10-12 — Date and location controls moved to the bottom (phone).** Evidence: building the first main-screen version exactly as sketched put both buttons in the top corners, the hardest spots to reach one-handed, which conflicts with requirement 18. They now sit in a bar above the bottom navigation, with previous/next-day arrows on the date control (taken from the laptop sketch). `reference/sketch-main-screen.jpg` still shows the old phone placement for those two buttons; the sketch should be redrawn or annotated.
+- **2026-10-12 — Main character.** The Developer decided the user picks a main (favorite) character, shown in the middle and larger, and the reminders accommodate that character's wording. This replaces the open question of which character's reminder wording to show when several are on screen. Requirements 6 and 11 updated. The "make main" control is built with the character gallery.
+- **2026-10-12 — Added to the main screen:** a written outfit caption under each character, and an Open-Meteo credit line (data source), because the requirements call for a written recommendation and a visible data source.
 
 ## Approval
 
