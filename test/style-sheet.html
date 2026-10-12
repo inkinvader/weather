@@ -16,7 +16,7 @@
     .scene-cell .scene-art { width: 100%; height: 100%; display: block; }
     .scene-cell .sky { position: absolute; top: 8px; left: 6px; }
     .scene-cell .sky svg { width: 110px; height: auto; background: none; }
-    .scene-cell .fig { position: absolute; left: 50px; bottom: 6px; width: 100px; height: 168px; }
+    .scene-cell .fig { position: absolute; left: 50px; bottom: 6px; width: 100px; height: 178px; }
     .scene-cell .fig svg { width: 100%; height: 100%; background: none; }
   </style>
 </head>
@@ -33,6 +33,7 @@
   const section = (title, cells) => '<h2>' + title + '</h2><div class="row">' + cells.join("") + "</div>";
   const cell = (svg, label, w, h) => '<div class="cell"><div style="width:' + w + 'px;height:' + h + 'px">' + svg + "</div><small>" + label + "</small></div>";
 
+  const figH = (w) => Math.round((w * Art.FIGURE_HEIGHT) / Art.FIGURE_WIDTH); // cell height from the figure's real proportions
   const out = [];
 
   // 1. Scenes for each weather type, with a figure standing in them
@@ -42,20 +43,20 @@
 
   // 2. Body types x gender presentations
   const bodies = [];
-  ["skinny", "average", "fat"].forEach((b) => ["feminine", "masculine"].forEach((g) => bodies.push(cell(fig(Object.assign({}, base, { bodyType: b, genderPresentation: g }), "preview", null, "full"), b + " / " + g, 110, 183))));
+  ["skinny", "average", "fat"].forEach((b) => ["feminine", "masculine"].forEach((g) => bodies.push(cell(fig(Object.assign({}, base, { bodyType: b, genderPresentation: g }), "preview", null, "full"), b + " / " + g, 110, figH(110)))));
   out.push(section("Body type x gender presentation", bodies));
 
   // 3. All 21 outfits
   const outfits = [];
   Object.entries(Variation.OUTFIT_VARIATIONS).forEach(([category, list]) => list.forEach((v) =>
-    outfits.push(cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic" }), category: category, outfitId: v.id, tag: v.tag, view: "full", decorative: true }), category + ": " + v.name, 110, 183))));
+    outfits.push(cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic" }), category: category, outfitId: v.id, tag: v.tag, view: "full", decorative: true }), category + ": " + v.name, 110, figH(110)))));
   out.push(section("All 21 outfits", outfits));
 
   // 3b. The hooded outfits, large
   const hoodies = ["freezing-1", "cold-1", "cold-2"].map((id) => {
     const cat = id.split("-")[0];
     const v = Variation.OUTFIT_VARIATIONS[cat].find((x) => x.id === id);
-    return cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic", mouth: "grin" }), category: cat, outfitId: id, tag: v.tag, view: "full", decorative: true }), v.name, 220, 366);
+    return cell(Art.characterSvg({ character: Object.assign({}, base, { personality: "energetic", mouth: "grin" }), category: cat, outfitId: id, tag: v.tag, view: "full", decorative: true }), v.name, 220, figH(220));
   });
   out.push(section("Hooded outfits (close-up)", hoodies));
 

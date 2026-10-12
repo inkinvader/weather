@@ -251,6 +251,29 @@
   check("under a hood the beard still shows in the hair colour while the hair itself does not",
     beardUnderHood("curly-auburn", "beard").includes("#8a3b1f") && !beardUnderHood("curly-auburn", "clean").includes("#8a3b1f"));
 
+  // --- Hair is drawn as one piece, and tall hair is not cut off ---
+  const drawHair = (hairId) => Art.characterSvg({ character: Object.assign({}, T0, { hair: hairId }), category: "mild", outfitId: "preview", tag: null, view: "full", decorative: true });
+  const hairHost = document.createElement("div");
+  hairHost.style.cssText = "position:absolute;left:0;top:0;width:300px;height:520px;visibility:hidden";
+  document.body.appendChild(hairHost);
+  const hairIssues = [];
+  Traits.HAIR.filter((h) => h.style !== "bald").forEach((h) => {
+    hairHost.innerHTML = drawHair(h.id);
+    const svg = hairHost.querySelector("svg");
+    const vb = svg.viewBox.baseVal;
+    // every hair shape is inside the drawing area
+    svg.querySelectorAll("[fill]").forEach(() => {});
+    const hairBoxes = Array.from(svg.querySelectorAll("path")).filter((p) => (p.getAttribute("fill") || "").includes(h.id) === false);
+    const top = svg.getBBox().y;
+    if (top < vb.y - 0.5) hairIssues.push(h.id + " is cut off at the top (" + top.toFixed(1) + " < " + vb.y + ")");
+  });
+  hairHost.remove();
+  check("no hairstyle (spikes, bun, curls) is taller than the figure's drawing area, so none is cut off", hairIssues.length === 0, hairIssues.join(" | "));
+  const merged = (hairId) => (drawHair(hairId).match(/stroke-width="2.4"/g) || []).length;
+  check("each hairstyle has ONE outline around its whole silhouette, not one per piece (curly has no circle outlines)",
+    merged("curly-auburn") === merged("short-brown") && merged("spiky-blond") === merged("short-brown"), "outlined groups: curly " + merged("curly-auburn") + ", short " + merged("short-brown") + ", spiky " + merged("spiky-blond"));
+  check("spiky hair is a dome with spikes: the dome plus seven spikes are in the drawing", (drawHair("spiky-blond").match(/L/g) || []).length >= 14);
+
   // --- Facial hair ---
   const faceDrawings = Traits.traitByKey("facialHair").options.map((o) => Art.characterSvg({ character: Object.assign({}, T0, { facialHair: o.id }), category: "mild", outfitId: "preview", tag: null, view: "head", decorative: true }));
   check("facial hair: 6 options (clean shaven, stubble, mustache, goatee, beard, full beard & mustache), each drawn differently",

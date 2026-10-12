@@ -43,7 +43,10 @@
       if (cache[key]) return "url(#" + cache[key] + ")";
       const id = nextId("v");
       cache[key] = id;
-      if (k === "sphere") {
+      if (k === "hair") {
+        // all hair pieces share one light source in head space, so merged pieces look like one mass
+        defs.push('<radialGradient id="' + id + '" gradientUnits="userSpaceOnUse" cx="52" cy="30" r="42">' + stop(0, shade(color, 0.2)) + stop(0.5, color) + stop(1, shade(color, -0.3)) + "</radialGradient>");
+      } else if (k === "sphere") {
         defs.push('<radialGradient id="' + id + '" cx=".36" cy=".3" r=".85">' + stop(0, shade(color, 0.14)) + stop(0.45, color) + stop(1, shade(color, -0.26)) + "</radialGradient>");
       } else if (k === "vert") {
         defs.push('<linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">' + stop(0, shade(color, 0.12)) + stop(0.6, color) + stop(1, shade(color, -0.2)) + "</linearGradient>");
@@ -307,27 +310,51 @@
 
   // --- Head parts, drawn in a 120-wide head space (centre 60,48, radius 24) and scaled up later ---
   // Hair is returned in two layers: `back` goes behind the body, `front` over the head.
+  const SPIKES = [[-58, 9], [-38, 13], [-18, 16], [2, 19], [20, 15], [40, 12], [60, 8]]
+    .map(([deg, len]) => {
+      const at = (angle, radius) => [60 + radius * Math.sin((angle * Math.PI) / 180), 46 - radius * Math.cos((angle * Math.PI) / 180)];
+      const [x1, y1] = at(deg - 12, 23);
+      const [x2, y2] = at(deg + 12, 23);
+      const [tx, ty] = at(deg * 0.55, 25 + len); // tips lean only a little outward, so the hair mostly points up
+      return "M" + x1.toFixed(1) + " " + y1.toFixed(1) + "L" + tx.toFixed(1) + " " + ty.toFixed(1) + "L" + x2.toFixed(1) + " " + y2.toFixed(1) + "Z";
+    })
+    .join("");
+
   function hairLayers(hair, V) {
     if (hair.style === "bald") return { back: "", front: "" };
     const color = hair.color;
-    const fill = V(color, "sphere");
-    const cap = '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + fill + '"/>';
+    const fill = V(color, "hair");
+    const OUT = "#2a1f33";
+    // Every hairstyle is made of several shapes, but it must read as ONE hair piece. So the shapes are drawn
+    // twice: first with a thick soft outline (the outline of their merged silhouette), then again as flat
+    // shaded fill with no outline of their own. That leaves no lines between overlapping pieces.
+    const merged = (shapes) =>
+      '<g stroke="' + OUT + '" stroke-opacity=".5" stroke-width="2.4" stroke-linejoin="round">' + shapes(OUT) + "</g>" + shapes(fill);
+    // The hairline: a mass of hair over the top of the head, with a scalloped fringe across the forehead.
+    const cap = (f) => '<path d="M35 46a25 25 0 0 1 50 0q-25 -16 -50 0z" fill="' + f + '"/>';
     const layers = {
-      short: { back: "", front: cap },
-      long: { back: '<path d="M33 44h54v50q-27 9 -54 0z" fill="' + V(color, "cyl") + '"/>', front: cap },
+      short: { back: "", front: merged((f) => cap(f)) },
+      long: { back: merged((f) => '<path d="M33 44h54v50q-27 9 -54 0z" fill="' + f + '"/>'), front: merged((f) => cap(f)) },
+      // curly: puffs sit on the hair mass and merge into it: no circle outlines, no seam against the base
       curly: {
         back: "",
-        front:
-          '<g fill="' + fill + '"><circle cx="38" cy="40" r="8"/><circle cx="48" cy="30" r="9"/><circle cx="60" cy="27" r="9"/><circle cx="72" cy="30" r="9"/><circle cx="82" cy="40" r="8"/></g>' + cap,
+        front: merged((f) =>
+          cap(f) +
+          '<g fill="' + f + '"><circle cx="36" cy="38" r="8"/><circle cx="43" cy="28" r="9"/><circle cx="53" cy="23" r="9"/><circle cx="67" cy="23" r="9"/><circle cx="77" cy="28" r="9"/><circle cx="84" cy="38" r="8"/></g>'),
       },
-      spiky: { back: "", front: '<path d="M36 42L40 18l8 16 6 -18 6 17 6 -17 6 18 8 -16 4 24q-24 -10 -48 0z" fill="' + fill + '"/>' },
-      bun: { back: "", front: cap + '<circle cx="60" cy="19" r="9" fill="' + fill + '"/>' },
-      ponytail: { back: '<path d="M80 38q20 6 10 38q-8 -10 -14 -16z" fill="' + V(color, "cyl") + '"/>', front: cap },
+      // spiky: a hair dome that follows the curve of the head, with seven spikes fanning out of it in
+      // different directions (pointing mostly up, leaning slightly away from the middle, in uneven lengths), so no bare skin
+      // shows above the hairline and it reads as hair rather than a crown
+      spiky: {
+        back: "",
+        front: merged((f) => cap(f) + '<path d="' + SPIKES + '" fill="' + f + '"/>'),
+      },
+      bun: { back: "", front: merged((f) => cap(f) + '<circle cx="60" cy="18" r="9" fill="' + f + '"/>') },
+      ponytail: { back: merged((f) => '<path d="M80 38q20 6 10 38q-8 -10 -14 -16z" fill="' + f + '"/>'), front: merged((f) => cap(f)) },
       wavy: {
-        back: '<path d="M34 44q-8 18 0 36q8 -6 4 -20zM86 44q8 18 0 36q-8 -6 -4 -20z" fill="' + V(color, "cyl") + '"/>',
-        front: cap,
+        back: merged((f) => '<path d="M34 44q-8 18 0 36q8 -6 4 -20zM86 44q8 18 0 36q-8 -6 -4 -20z" fill="' + f + '"/>'),
+        front: merged((f) => cap(f)),
       },
-      bald: { back: "", front: "" },
     };
     return layers[hair.style];
   }
@@ -442,8 +469,11 @@
   const HOOD_GEOMETRY = { apexY: 3, headTopY: 13, widthAtHeadCentre: 66, bottomWidth: 80, headRadius: 28.8, headCentreY: 42 };
 
   // The figure's drawing area: 120 wide, 200 tall. The head is large (Mii-style proportions).
+  // (it starts 14 above the head's old top edge, so tall hair such as spikes is never cut off)
   const FIGURE_WIDTH = 120;
-  const FIGURE_HEIGHT = 200;
+  const FIGURE_HEIGHT = 214;
+  const FIGURE_VIEWBOX = "0 -14 120 214";
+  const HEAD_VIEWBOX = "16 -16 88 98";
   const HEAD_SCALE = 1.2; // head space (radius 24) -> figure space (radius ~29), centred at (60, 42)
   const HEAD_TRANSFORM = "translate(60 42) scale(" + HEAD_SCALE + ") translate(-60 -48)";
 
@@ -579,7 +609,8 @@
 
     // head group: scaled-up head space; the head is a shaded sphere with a glossy highlight
     const head = [];
-    head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round">' + (hoodUp ? "" : earsSvg(character.ear, null, V, skin)) + '<circle cx="60" cy="48" r="24" fill="' + V(skin, "sphere") + '"/>' + hair.front + "</g>");
+    head.push('<g stroke="#2a1f33" stroke-opacity=".5" stroke-width="1.1" stroke-linejoin="round">' + (hoodUp ? "" : earsSvg(character.ear, null, V, skin)) + '<circle cx="60" cy="48" r="24" fill="' + V(skin, "sphere") + '"/>' + "</g>");
+    head.push(hair.front);
     if (hair.front) head.push('<path d="M40 33q10 -9 24 -8" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" fill="none" stroke-linecap="round"/>');
     head.push(gleam(45, 36, 7, 4.5, -28, 0.5));
     const hairColor = Traits.hairOf(character).color;
@@ -612,7 +643,7 @@
     const outlined = "<g " + OUTLINE + ' stroke-width="1.3">' + body.join("") + "</g>";
     const parts =
       (look.view === "head" ? "" : '<ellipse data-shadow="ground" cx="60" cy="195" rx="38" ry="5" fill="' + shadowFill + '"/>') + // contact shadow on the ground
-      "<g " + OUTLINE + ' stroke-width="1.2">' + hair.back + "</g>" +
+      '<g transform="' + HEAD_TRANSFORM + '">' + hair.back + "</g>" +
       outlined +
       '<g transform="' + HEAD_TRANSFORM + '">' + head.join("") + "</g>" +
       hoodFrame +
@@ -620,14 +651,14 @@
 
     // "head" frames just the head and hair (builder face tabs, gallery thumbnails); no fixed size:
     // CSS scales the figure to the room available, anchored to the ground.
-    const viewBox = look.view === "head" ? "18 -2 84 84" : "0 0 " + FIGURE_WIDTH + " " + FIGURE_HEIGHT;
+    const viewBox = look.view === "head" ? HEAD_VIEWBOX : FIGURE_VIEWBOX;
     const aspect = look.view === "head" ? "xMidYMid meet" : "xMidYMax meet";
     const a11y = look.decorative ? 'aria-hidden="true"' : 'role="img" aria-label="' + look.alt + '"';
     return '<svg class="character-art" viewBox="' + viewBox + '" preserveAspectRatio="' + aspect + '" ' + a11y + "><defs>" + defs.join("") + "</defs>" + parts + "</svg>";
   }
 
   window.Art = {
-    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, HOOD_GEOMETRY,
+    WEATHER_ICONS, REMINDER_ICONS, OUTFIT_LOOK, FIGURE_WIDTH, FIGURE_HEIGHT, FIGURE_VIEWBOX, HEAD_VIEWBOX, HOOD_GEOMETRY,
     weatherIcon, reminderIcon, skyArt, sceneSvg, characterSvg,
   };
 })();
